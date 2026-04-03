@@ -169,18 +169,27 @@ def get_nearby_locations():
     except (KeyError, TypeError, ValueError):
         return jsonify({"error": "lat and lng query parameters are required and must be numeric"}), 400
 
-    # Fall back to default 1 km radius if not provided by the caller
-    radius_km = float(request.args.get("radius_km", _DEFAULT_NEARBY_KM))
+    # Fall back to default 1 km radius if not provided by the caller, and validate input
+    radius_param = request.args.get("radius_km")
+    if radius_param is None or radius_param == "":
+        radius_km = _DEFAULT_NEARBY_KM
+    else:
+        try:
+            radius_km = float(radius_param)
+        except (TypeError, ValueError):
+            return jsonify({"error": "radius_km query parameter must be a positive numeric value"}), 400
+        if radius_km <= 0:
+            return jsonify({"error": "radius_km query parameter must be a positive numeric value"}), 400
 
     # Fetch all active locations — we filter in Python since there's no PostGIS RPC set up
     res = supabase.table("locations").select("*").eq("is_active", True).execute()
 
     # Keep only locations within the radius; attach computed distance for the frontend to display
-    nearby = [
-        {**loc, "distance_km": round(_haversine_km(lat, lng, loc["latitude"], loc["longitude"]), 4)}
-        for loc in res.data
-        if _haversine_km(lat, lng, loc["latitude"], loc["longitude"]) <= radius_km
-    ]
+    nearby = []
+    for loc in res.data:
+        distance = _haversine_km(lat, lng, loc["latitude"], loc["longitude"])
+        if distance <= radius_km:
+            nearby.append({**loc, "distance_km": round(distance, 4)})
     return jsonify(nearby), 200
 
 
@@ -388,7 +397,7 @@ def register_for_event(event_id):
 
     # Only check capacity if max_capacity is set (null means unlimited)
     max_capacity = event.get("max_capacity")
-    if max_capacity:
+    if max_capacity is not None:
         # count="exact" asks Supabase to return the row count alongside the data
         count_res = (
             supabase.table("event_registrations")
@@ -523,7 +532,13 @@ def check_user_at_location(event_id):
         return jsonify({"error": "lat and lng are required in the request body"}), 400
 
     # Caller can tighten or loosen the geofence; default is 50 m
-    radius_km = float(body.get("radius_km", _DEFAULT_PROXIMITY_KM))
+    raw_radius = body.get("radius_km", _DEFAULT_PROXIMITY_KM)
+    try:
+        radius_km = float(raw_radius)
+    except (TypeError, ValueError):
+        return jsonify({"error": "radius_km must be a number"}), 400
+    if radius_km <= 0:
+        return jsonify({"error": "radius_km must be positive"}), 400
 
     # Fetch only the coordinates from the joined location — no need for the full event row
     event_res = (
@@ -580,7 +595,13 @@ def log_event_visit(event_id):
     visit_source = body.get("visit_source", "gps")
 
     # Caller can override the proximity threshold; default is 50 m
-    radius_km = float(body.get("radius_km", _DEFAULT_PROXIMITY_KM))
+    raw_radius = body.get("radius_km", _DEFAULT_PROXIMITY_KM)
+    try:
+        radius_km = float(raw_radius)
+    except (TypeError, ValueError):
+        return jsonify({"error": "radius_km must be a numeric value"}), 400
+    if radius_km <= 0:
+        return jsonify({"error": "radius_km must be a positive value"}), 400
 
     # Fetch event with its location coords in a single joined query
     event_res = (
@@ -618,16 +639,16 @@ def log_event_visit(event_id):
         .execute()
     )
 
-    # Re-read all visit rows for this event to get accurate counts for analytics
+    # Get accurate counts for analytics using server-side counting to avoid fetching all rows
     visits_res = (
         supabase.table("event_visits")
-        .select("user_id")
+        .select("user_id", count="exact")
         .eq("event_id", event_id)
         .execute()
     )
-    visit_count = len(visits_res.data)
-    # Deduplicate user_ids with a set — with composite PK this equals visit_count, but is explicit
-    unique_users = len({v["user_id"] for v in visits_res.data})
+    visit_count = visits_res.count or 0
+    # With composite PK (user_id,event_id), each row is a unique user visit for this event
+    unique_users = visit_count
 
     # Upsert-style logic: update if an analytics row exists, insert if this is the first visit
     analytics_exists = (
