@@ -1,3 +1,27 @@
 [tool.isort]
 profile = "black"
 skip_glob = ["migrations/*"]
+
+[project]
+name = "your-project-name"
+version = "0.1.0"
+dependencies = [
+    "black==25.1.0",
+    "factory-boy==3.3.3",
+    "flake8==7.3.0",
+    "flake8-blind-except==0.2.1",
+    "flake8-debugger==4.1.2",
+    "flake8-docstrings==1.7.0",
+    "flake8-isort==6.1.2",
+    "flask==3.1.1",
+    "flask-cors>=6.0.2",
+    "gunicorn>=25.3.0",
+    "isort==6.0.1",
+    "pep8-naming==0.15.1",
+    "pytest==8.4.1",
+    "pytest-cov==6.2.1",
+    "python-dotenv>=1.2.2",
+    "supabase>=2.28.3",
+    "webtest==3.0.6",
+    "werkzeug==3.1.3",
+]

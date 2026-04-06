@@ -1,7 +1,7 @@
 from app.routes.users import users_bp
 from app.routes.events import events_bp
 from app.routes.collectibles import collectibles_bp
-import Flask
+from flask import Flask
 
 def create_app():
     app = Flask(__name__)
