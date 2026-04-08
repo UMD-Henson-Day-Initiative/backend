@@ -18,7 +18,6 @@ def create_collectible():
         "event_id":          data.get("event_id"),
         "image_url":         data.get("image_url"),
         "model_url":         data.get("model_url"),
-        "base_spawn_weight": data.get("base_spawn_weight", 10)
     }).execute()
 
     return jsonify(result.data[0]), 201
@@ -97,9 +96,11 @@ def create_random_spawn():
         "collectible_id": data.get("collectible_id"),
         "location_id":    data.get("location_id"),
         "event_id":       data.get("event_id"),
+        "spawn_time":     data.get("spawn_time"),
         "despawn_time":   data.get("despawn_time"),
         "spawn_mode":     "random",
         "status":         "active"
+        "max_collectors": data.get("max_collectors", 1)
     }).execute()
     return jsonify(result.data), 201
 
@@ -120,9 +121,9 @@ def create_schedule_drop():
         "event_id":       data.get("event_id"),
         "location_id":    data.get("location_id"),
         "scheduled_for":  data.get("scheduled_for"),
-        "despawn_after":  data.get("despawn_after", "30 minutes"),
+        "despawn_time":  data.get("despawn_after"),
         "max_collectors": data.get("max_collectors", 1),
-        "status":         "pending"
+        "schedule_status":         "pending"
     }).execute()
 
     return jsonify(result.data[0]), 201
