@@ -120,18 +120,6 @@ curl http://127.0.0.1:5000/events | python -m json.tool
 
 ---
 
-## 🌐 Sharing Local Server (for teammates)
-
-Use ngrok:
-
-```
-ngrok http 5000
-```
-
-Then share the generated URL.
-
----
-
 ## 🧠 Development Notes
 
 * Use **Blueprints** for modular routes (`app/routes/`)
