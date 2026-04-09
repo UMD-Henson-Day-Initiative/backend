@@ -1,3 +1,3 @@
 from flask import Blueprint, request, jsonify
 
-users_bp = Blueprint("leaderboard", __name__)
+leaderboard_bp = Blueprint("leaderboard", __name__)
