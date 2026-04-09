@@ -1,5 +1,6 @@
 """Create an application instance."""
 from app.app import create_app
+from flask import Flask
 
 app = create_app()
 

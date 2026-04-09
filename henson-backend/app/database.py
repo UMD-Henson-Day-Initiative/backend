@@ -1,7 +1,11 @@
-# -*- coding: utf-8 -*-
-"""Database module, including the Supabase database object and DB-related utilities."""
-
+import os
+from dotenv import load_dotenv
 from supabase import create_client
-from app.settings import SUPABASE_URL, SUPABASE_KEY
+
+load_dotenv()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
