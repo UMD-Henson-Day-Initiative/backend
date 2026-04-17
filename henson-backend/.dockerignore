@@ -1,0 +1,13 @@
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.git
+.gitignore
+*.md
+.env
+.env.example
+.env.test
+gunicorn.log
+*.log
+.DS_Store
