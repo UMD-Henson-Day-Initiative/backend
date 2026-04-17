@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """Application configuration.
 
@@ -17,3 +18,4 @@ class Config:
     SUPABASE_KEY = os.getenv("SUPABASE_KEY")
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret")
     DEBUG = os.getenv("FLASK_ENV", "production") == "development"
+

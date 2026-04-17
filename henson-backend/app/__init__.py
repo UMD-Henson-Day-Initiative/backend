@@ -1,3 +1,4 @@
+
 """Main application package."""
 from flask import Flask
 
@@ -21,3 +22,4 @@ def create_app():
     app.register_blueprint(leaderboard_bp, url_prefix="/leaderboard")
 
     return app
+
