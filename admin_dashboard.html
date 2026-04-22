@@ -293,7 +293,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
         <div class="map-panel">
           <div class="map-panel-title">Legend</div>
           <div class="map-legend">
-            <div class="legend-row"><span class="legend-dot" style="background:var(--success)"></span>Active spawn</div>
             <div class="legend-row"><span class="legend-dot" style="background:var(--accent2)"></span>Active event</div>
             <div class="legend-row"><span class="legend-dot" style="background:var(--accent3)"></span>Upcoming event</div>
             <div class="legend-row"><span class="legend-dot" style="background:var(--muted)"></span>Past event</div>
@@ -302,25 +301,65 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
       </div>
       <div class="map-controls">
         <div class="map-place-panel">
-          <div class="map-panel-title">Place Collectible</div>
-          <button class="place-mode-btn" id="place-mode-btn" onclick="togglePlaceMode()">+ Click map to place</button>
+          <div class="map-panel-title">Map Placer</div>
           <div class="form-row">
-            <label class="form-label">Muppet</label>
-            <select class="place-select" id="map-muppet-select"><option>Loading...</option></select>
+            <label class="form-label">Placement mode</label>
+            <select class="place-select" id="map-placement-mode" onchange="updateMapPlacementModeUI()">
+              <option value="collectible" selected>Collectible placement</option>
+              <option value="event">Event placement</option>
+            </select>
+          </div>
+          <button class="place-mode-btn" id="place-mode-btn" onclick="togglePlaceMode()">+ Click map to place</button>
+          <div id="map-collectible-fields">
+            <div class="form-row">
+              <label class="form-label">Muppet</label>
+              <select class="place-select" id="map-muppet-select"><option>Loading...</option></select>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Despawn after</label>
+              <select class="place-select" id="map-despawn-select">
+                <option value="30">30 minutes</option>
+                <option value="60" selected>1 hour</option>
+                <option value="120">2 hours</option>
+                <option value="240">4 hours</option>
+              </select>
+            </div>
+          </div>
+          <div id="map-event-fields" style="display:none;">
+            <div class="form-row" id="map-event-name-row">
+            <label class="form-label">Event name</label>
+            <input class="place-select" id="map-event-name" placeholder="Admin Placed Event" />
+            </div>
+            <div class="form-row" id="map-event-duration-row">
+              <label class="form-label">Event duration</label>
+              <select class="place-select" id="map-event-duration">
+                <option value="60">1 hour</option>
+                <option value="120" selected>2 hours</option>
+                <option value="180">3 hours</option>
+                <option value="240">4 hours</option>
+              </select>
+            </div>
+            <div class="form-row" id="map-event-category-row">
+              <label class="form-label">Event category</label>
+              <select class="place-select" id="map-event-category">
+                <option value="other" selected>Other</option>
+                <option value="social">Social</option>
+                <option value="workshop">Workshop</option>
+                <option value="career">Career</option>
+                <option value="club">Club</option>
+                <option value="academic">Academic</option>
+                <option value="sports">Sports</option>
+              </select>
+            </div>
           </div>
           <div class="form-row">
-            <label class="form-label">Despawn after</label>
-            <select class="place-select" id="map-despawn-select">
-              <option value="30">30 minutes</option>
-              <option value="60" selected>1 hour</option>
-              <option value="120">2 hours</option>
-              <option value="240">4 hours</option>
-            </select>
+            <label class="form-label">Start time (local)</label>
+            <input type="datetime-local" class="place-select" id="map-spawn-time" step="60" />
           </div>
           <div id="map-coords" style="font-size:.6rem;color:var(--muted);margin-bottom:10px;display:none;">
             📍 <span id="coords-display"></span>
           </div>
-          <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="confirmMapPlace()" id="map-place-confirm" disabled>Spawn Here</button>
+          <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="confirmMapPlace()" id="map-place-confirm" disabled>Create</button>
         </div>
       </div>
     </div>
@@ -334,6 +373,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 // Change this to your deployed URL in production
 const BASE_URL = 'http://127.0.0.1:5000'
+// Flask mounts blueprints with a prefix that matches the first path segment, e.g.
+// collectibles_bp at /collectibles + route /collectibles → /collectibles/collectibles
+const API_COLLECTIBLES = `${BASE_URL}/collectibles/collectibles`
+const API_EVENTS       = `${BASE_URL}/events/events`
+// collectibles_bp is mounted at /collectibles; spawn routes live on that blueprint
+const API_SPAWNS_BASE   = `${BASE_URL}/collectibles/spawns`
+const API_SPAWNS_ACTIVE = `${API_SPAWNS_BASE}/active`
+const API_SPAWNS_ADMIN_EVENT = `${API_SPAWNS_BASE}/admin-event`
 
 // Emoji lookup — your DB stores muppet_name as text, we map to emoji here
 const MUPPET_EMOJIS = {
@@ -342,13 +389,28 @@ const MUPPET_EMOJIS = {
   'Beaker':'🧪','Chef':'👨‍🍳'
 }
 
+/** `datetime-local` value (browser-local wall clock). */
+function formatDatetimeLocal(d) {
+  const p = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+/** Convert `<input type="datetime-local">` value → UTC ISO8601 for the API. */
+function datetimeLocalToSpawnISO(localStr) {
+  if (!localStr || !String(localStr).trim()) return new Date().toISOString()
+  const t = new Date(localStr)
+  if (Number.isNaN(t.getTime())) return new Date().toISOString()
+  return t.toISOString()
+}
+
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let MUPPETS = [], EVENTS = [], activeSpawns = []
 let selectedMuppets = new Set()
 let selectedEvent = null, selectedEventMuppets = new Set()
 let map = null, placeMode = false
 let pendingMarker = null, pendingCoords = null
-let mapSpawnLayers = [], currentTab = 'general'
+let pendingEventPlacement = null
+let mapSpawnLayers = [], mapEventLayers = [], currentTab = 'general'
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -366,7 +428,10 @@ async function loadAllData() {
     setConnectionStatus(true)
   } catch(err) {
     setConnectionStatus(false)
-    showToast('Could not reach backend — is Flask running on port 5000?', 'error')
+    const hint = err.message && err.message.includes('fetch')
+      ? 'Network error — is Flask running on port 5000?'
+      : (err.message || 'Failed to load data from backend')
+    showToast(hint, 'error')
     console.error(err)
   } finally {
     showLoading(false)
@@ -374,13 +439,13 @@ async function loadAllData() {
 }
 
 async function loadMuppets() {
-  const res  = await fetch(`${BASE_URL}/collectibles`)
-  if (!res.ok) throw new Error(`/collectibles returned ${res.status}`)
+  const res  = await fetch(API_COLLECTIBLES)
+  if (!res.ok) throw new Error(`GET /collectibles/collectibles returned ${res.status}`)
   const data = await res.json()
 
-  // map DB columns to what the dashboard needs
+  // map DB columns to what the dashboard needs (API uses id; tolerate collectible_id)
   MUPPETS = data.map(m => ({
-    collectible_id: m.collectible_id,
+    collectible_id: m.collectible_id ?? m.id,
     muppet_name:    m.muppet_name,
     rarity:         m.rarity,
     image_url:      m.muppet_image_url,
@@ -394,41 +459,59 @@ async function loadMuppets() {
 }
 
 async function loadEvents() {
-  const res  = await fetch(`${BASE_URL}/events`)
-  if (!res.ok) throw new Error(`/events returned ${res.status}`)
+  const res  = await fetch(API_EVENTS)
+  if (!res.ok) throw new Error(`GET /events/events returned ${res.status}`)
   const data = await res.json()
 
-  EVENTS = data.map(e => ({
-    event_id:      e.event_id,
-    name:          e.name,
-    location_name: e.location_name,
-    latitude:      e.latitude,
-    longitude:     e.longitude,
-    start_time:    e.start_time,
-    end_time:      e.end_time
-  }))
+  // API returns locations(*) nested under locations (object or single-element array)
+  EVENTS = data.map(e => {
+    const rawLoc = e.locations
+    const loc = Array.isArray(rawLoc) ? (rawLoc[0] || {}) : (rawLoc || {})
+    return {
+      event_id:      e.event_id ?? e.id,
+      location_id:   loc.id ?? e.location_id ?? null,
+      name:          e.name,
+      location_name: e.location_name ?? loc.name ?? loc.title ?? '',
+      latitude:      e.latitude ?? loc.latitude,
+      longitude:     e.longitude ?? loc.longitude,
+      start_time:    e.start_time,
+      end_time:      e.end_time
+    }
+  })
 
   buildEventList()
 }
 
 async function loadActiveSpawns() {
-  // GET /spawns/active must exist in your Flask routes file
-  // it returns collectible_spawns rows where status = 'active'
-  const res  = await fetch(`${BASE_URL}/spawns/active`)
-  if (!res.ok) throw new Error(`/spawns/active returned ${res.status}`)
+  const res  = await fetch(API_SPAWNS_ACTIVE)
+  if (!res.ok) {
+    activeSpawns = []
+    renderActiveSpawnsList()
+    if (map) renderMapSpawns()
+    console.warn(`GET ${API_SPAWNS_ACTIVE} failed (${res.status}) — active spawn list left empty.`)
+    return
+  }
   const data = await res.json()
 
-  activeSpawns = data.map(s => ({
-    id:             s.id,
-    collectible_id: s.collectible_id,
-    event_id:       s.event_id || null,
-    spawned_at:     s.spawn_time || s.created_at,
-    lat:            s.lat || null,
-    lng:            s.lng || null
-  }))
+  activeSpawns = data.map(s => {
+    const rawLoc = s.locations
+    const loc = Array.isArray(rawLoc) ? (rawLoc[0] || {}) : (rawLoc || {})
+    return {
+      id:             s.id,
+      collectible_id: s.collectible_id,
+      event_id:       s.event_id || null,
+      max_collectors: s.max_collectors ?? 1,
+      spawned_at:     s.spawn_time || s.created_at,
+      lat:            s.lat ?? loc.latitude ?? null,
+      lng:            s.lng ?? loc.longitude ?? null
+    }
+  })
 
   renderActiveSpawnsList()
-  if (map) renderMapSpawns()
+  if (map) {
+    renderMapSpawns()
+    renderMapEvents()
+  }
 }
 
 async function refreshAll() {
@@ -477,7 +560,7 @@ function updateSliderFill(input) {
 
 function updateRateSummary() {
   const vals = ['common','rare','epic','legendary'].map(r =>
-    `<span class="rate-pill ${r}">${r.charAt(0).toUpperCase()+r.slice(1)}: ${document.getElementById('rate-'+r)?.value||0}/min</span>`
+    `<span class="rate-pill ${r}">${r.charAt(0).toUpperCase()+r.slice(1)}: ${document.getElementById('rate-'+r)?.value||0}/hr</span>`
   ).join('')
   document.getElementById('rate-summary').innerHTML = vals
 }
@@ -537,6 +620,7 @@ function selectEvent(id, el) {
 function buildEventSpawnPanel() {
   if (!selectedEvent) return
   const { status } = getEventStatus(selectedEvent)
+  const spawnDefault = formatDatetimeLocal(new Date())
   document.getElementById('event-spawn-panel').innerHTML = `
     <div class="spawn-panel-title">
       📅 ${selectedEvent.name}
@@ -559,12 +643,16 @@ function buildEventSpawnPanel() {
     </div>
     <div class="divider"></div>
     <div class="form-row">
+      <label class="form-label">Spawn at (local)</label>
+      <input type="datetime-local" class="form-input" id="event-spawn-time" step="60" value="${spawnDefault}" />
+    </div>
+    <div class="form-row">
       <label class="form-label">Despawn After</label>
       <select class="form-input" id="event-despawn">
-        <option value="30 minutes">30 minutes</option>
-        <option value="1 hour" selected>1 hour</option>
-        <option value="2 hours">2 hours</option>
-        <option value="4 hours">4 hours</option>
+        <option value="30">30 minutes</option>
+        <option value="60" selected>1 hour</option>
+        <option value="120">2 hours</option>
+        <option value="240">4 hours</option>
       </select>
     </div>
     <div class="form-row">
@@ -594,11 +682,14 @@ function initMap() {
   }).addTo(map)
 
   L.control.zoom({position:'bottomright'}).addTo(map)
+  const mapSpawnEl = document.getElementById('map-spawn-time')
+  if (mapSpawnEl && !mapSpawnEl.value) mapSpawnEl.value = formatDatetimeLocal(new Date())
   renderMapEvents()
   renderMapSpawns()
 
   map.on('click', e => {
     if (!placeMode) return
+    pendingEventPlacement = null
     pendingCoords = e.latlng
     if (pendingMarker) map.removeLayer(pendingMarker)
     pendingMarker = L.marker([e.latlng.lat,e.latlng.lng],{
@@ -613,13 +704,47 @@ function initMap() {
 
 function renderMapEvents() {
   if (!map || !EVENTS.length) return
+  mapEventLayers.forEach(l => map.removeLayer(l))
+  mapEventLayers = []
   EVENTS.forEach(ev => {
     const { status } = getEventStatus(ev)
     const color = status==='active' ? '#f1c835' : status==='upcoming' ? '#35c8f1' : '#5a5e42'
-    L.marker([ev.latitude, ev.longitude],{
+    const eventSpawns = activeSpawns.filter(sp => sp.event_id === ev.event_id)
+    const grouped = new Map()
+    eventSpawns.forEach(sp => {
+      const m = MUPPETS.find(x => x.collectible_id === sp.collectible_id)
+      const key = sp.collectible_id
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          emoji: m?.emoji || '🎭',
+          name: m?.muppet_name || 'Unknown',
+          rarity: m?.rarity || '',
+          spawns: 0,
+          maxCollectors: 0
+        })
+      }
+      const row = grouped.get(key)
+      row.spawns += 1
+      row.maxCollectors += Number(sp.max_collectors || 1)
+    })
+    const spawnRows = [...grouped.values()].map(row => `
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);">
+        <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ${row.emoji} ${row.name} <span style="color:#5a5e42">(${row.rarity})</span>
+        </div>
+        <div style="white-space:nowrap;color:#e8ead8;">x${row.spawns} · max ${row.maxCollectors}</div>
+      </div>
+    `).join('')
+
+    const markerCore = eventSpawns.length
+      ? `<div style="position:relative;width:19px;height:19px;border-radius:50%;background:${color};border:3px solid rgba(255,255,255,.35);${status==='active'?'box-shadow:0 0 10px '+color:''}display:flex;align-items:center;justify-content:center;color:#0f100c;font-size:11px;line-height:1;">${[...grouped.values()][0]?.emoji || '🎭'}</div>`
+      : `<div style="width:19px;height:19px;border-radius:50%;background:${color};border:3px solid rgba(255,255,255,.35);${status==='active'?'box-shadow:0 0 10px '+color:''}"></div>`
+    const layer = L.marker([ev.latitude, ev.longitude],{
+      zIndexOffset: 700,
+      bubblingMouseEvents: false,
       icon: L.divIcon({
-        html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid rgba(255,255,255,.25);${status==='active'?'box-shadow:0 0 8px '+color:''}"></div>`,
-        iconSize:[14,14], className:''
+        html: markerCore,
+        iconSize:[19,19], className:''
       })
     }).addTo(map).bindPopup(`
       <div style="font-family:'DM Mono',monospace;font-size:12px;">
@@ -627,8 +752,35 @@ function renderMapEvents() {
         <span style="color:#5a5e42">${ev.location_name||''}</span><br>
         <span style="color:${color}">${status}</span><br>
         <span style="color:#5a5e42;font-size:11px;">${formatTime(ev.start_time)} → ${formatTime(ev.end_time)}</span>
+        <div style="margin-top:8px;border-top:1px solid rgba(255,255,255,.12);padding-top:8px;">
+          <div style="font-weight:600;margin-bottom:4px;">Muppets at this event</div>
+          <div style="max-height:140px;overflow-y:auto;padding-right:4px;">
+            ${spawnRows || '<div style="color:#5a5e42;">No active event spawns</div>'}
+          </div>
+        </div>
       </div>
     `)
+    layer.on('click', () => {
+      if (!placeMode) return
+      const mode = document.getElementById('map-placement-mode')?.value || 'collectible'
+      if (mode !== 'collectible') return
+      pendingEventPlacement = {
+        eventId: ev.event_id,
+        locationId: ev.location_id,
+        name: ev.name
+      }
+      pendingCoords = { lat: ev.latitude, lng: ev.longitude }
+      if (pendingMarker) map.removeLayer(pendingMarker)
+      pendingMarker = L.marker([ev.latitude, ev.longitude],{
+        icon: L.divIcon({html:'<div style="font-size:1.8rem">📍</div>',iconSize:[28,28],className:''})
+      }).addTo(map)
+      document.getElementById('map-coords').style.display = 'block'
+      document.getElementById('coords-display').textContent =
+        `${ev.latitude.toFixed(5)}, ${ev.longitude.toFixed(5)}`
+      document.getElementById('map-place-confirm').disabled = false
+      showToast(`Targeting event: ${ev.name}`, 'info')
+    })
+    mapEventLayers.push(layer)
   })
 }
 
@@ -637,10 +789,14 @@ function renderMapSpawns() {
   mapSpawnLayers.forEach(l => map.removeLayer(l))
   mapSpawnLayers = []
   activeSpawns.forEach(sp => {
-    if (!sp.lat || !sp.lng) return
+    // Event-linked spawns are represented inside the event marker icon/popup.
+    if (sp.event_id) return
+    if (sp.lat == null || sp.lng == null) return
     const m = MUPPETS.find(x => x.collectible_id === sp.collectible_id)
+    const iconSize = '1.4rem'
     const layer = L.marker([sp.lat,sp.lng],{
-      icon: L.divIcon({html:`<div style="font-size:1.4rem;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))">${m?.emoji||'🎭'}</div>`,iconSize:[24,24],className:''})
+      zIndexOffset: 300,
+      icon: L.divIcon({html:`<div style="font-size:${iconSize};line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))">${m?.emoji||'🎭'}</div>`,iconSize:[24,24],className:''})
     }).addTo(map).bindPopup(`
       <div style="font-family:'DM Mono',monospace;font-size:12px;">
         <strong>${m?.muppet_name||'Unknown'}</strong><br>
@@ -652,12 +808,52 @@ function renderMapSpawns() {
   })
 }
 
+function haversineMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000
+  const toRad = x => (x * Math.PI) / 180
+  const φ1 = toRad(lat1), φ2 = toRad(lat2)
+  const dφ = toRad(lat2 - lat1), dλ = toRad(lng2 - lng1)
+  const a =
+    Math.sin(dφ / 2) ** 2 +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(dλ / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+/** Nearest event with location info for a map click. */
+function nearestEventForPoint(lat, lng) {
+  let best = null
+  let bestD = Infinity
+  for (const ev of EVENTS) {
+    if (!ev.location_id || ev.latitude == null || ev.longitude == null) continue
+    const d = haversineMeters(lat, lng, ev.latitude, ev.longitude)
+    if (d < bestD) {
+      bestD = d
+      best = {
+        eventId: ev.event_id,
+        locationId: ev.location_id,
+        distanceM: d
+      }
+    }
+  }
+  return best
+}
+
 function buildMapMuppetSelect() {
   const sel = document.getElementById('map-muppet-select')
   if (!MUPPETS.length) { sel.innerHTML='<option>No muppets loaded</option>'; return }
   sel.innerHTML = MUPPETS.map(m =>
     `<option value="${m.collectible_id}">${m.emoji} ${m.muppet_name} (${m.rarity})</option>`
   ).join('')
+}
+
+function updateMapPlacementModeUI() {
+  const mode = document.getElementById('map-placement-mode')?.value || 'collectible'
+  const collectibleFields = document.getElementById('map-collectible-fields')
+  const eventFields = document.getElementById('map-event-fields')
+  const actionBtn = document.getElementById('map-place-confirm')
+  if (collectibleFields) collectibleFields.style.display = mode === 'collectible' ? '' : 'none'
+  if (eventFields) eventFields.style.display = mode === 'event' ? '' : 'none'
+  if (actionBtn) actionBtn.textContent = mode === 'event' ? 'Create Event Here' : 'Spawn Here'
 }
 
 function togglePlaceMode() {
@@ -667,6 +863,7 @@ function togglePlaceMode() {
     btn.classList.add('active')
     btn.textContent = '✕ Cancel placement'
     map._container.style.cursor = 'crosshair'
+    updateMapPlacementModeUI()
     showToast('Click the map to place a collectible', 'info')
   } else {
     btn.classList.remove('active')
@@ -675,31 +872,80 @@ function togglePlaceMode() {
     if (pendingMarker) { map.removeLayer(pendingMarker); pendingMarker=null }
     document.getElementById('map-place-confirm').disabled = true
     document.getElementById('map-coords').style.display = 'none'
+    pendingEventPlacement = null
     pendingCoords = null
   }
 }
 
 async function confirmMapPlace() {
   if (!pendingCoords) return
-  const collectible_id = document.getElementById('map-muppet-select').value
-  const despawn_mins   = parseInt(document.getElementById('map-despawn-select').value)
-  const muppet         = MUPPETS.find(m => m.collectible_id === collectible_id)
+  const collectible_id = document.getElementById('map-muppet-select')?.value || null
+  const despawn_mins   = parseInt(document.getElementById('map-despawn-select')?.value || '60', 10)
+  const muppet         = collectible_id ? MUPPETS.find(m => m.collectible_id === collectible_id) : null
+  const placementMode  = document.getElementById('map-placement-mode')?.value || 'collectible'
+  const nearestEvent   = nearestEventForPoint(pendingCoords.lat, pendingCoords.lng)
+  const associateRadiusM = 60
+  const explicitEvent = placementMode === 'collectible' && pendingEventPlacement
+  const useNearestEvent = placementMode === 'collectible' && !explicitEvent && !!nearestEvent && nearestEvent.distanceM <= associateRadiusM
+  const targetEvent = explicitEvent || (useNearestEvent ? nearestEvent : null)
+  const location_name  = `Map Point ${pendingCoords.lat.toFixed(5)}, ${pendingCoords.lng.toFixed(5)}`
+  const spawn_time = datetimeLocalToSpawnISO(document.getElementById('map-spawn-time')?.value)
 
   try {
-    const res = await fetch(`${BASE_URL}/spawns/admin`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        collectible_id,
-        lat:           pendingCoords.lat,
-        lng:           pendingCoords.lng,
-        despawn_after: despawn_mins + ' minutes',
-        max_collectors: 1
+    let res
+    if (placementMode === 'event') {
+      const event_name = (document.getElementById('map-event-name')?.value || '').trim() || 'Admin Placed Event'
+      const event_duration_mins = parseInt(document.getElementById('map-event-duration')?.value || '120', 10)
+      const event_category = document.getElementById('map-event-category')?.value || 'other'
+      res = await fetch(API_SPAWNS_ADMIN_EVENT, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          // Event placement always creates/uses a location at the clicked point.
+          location_id: null,
+          location_name,
+          lat: pendingCoords.lat,
+          lng: pendingCoords.lng,
+          spawn_time,
+          event_name,
+          event_duration_mins,
+          event_category,
+          organizer: 'Admin Dashboard',
+          description: 'Created from map placement'
+        })
       })
-    })
+    } else {
+      if (!collectible_id) {
+        showToast('Pick a muppet before placing.', 'error')
+        return
+      }
+      res = await fetch(`${API_SPAWNS_BASE}/admin`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          collectible_id,
+          event_id: targetEvent ? targetEvent.eventId : null,
+          location_id: targetEvent ? targetEvent.locationId : null,
+          location_name,
+          lat: pendingCoords.lat,
+          lng: pendingCoords.lng,
+          spawn_time,
+          despawn_after: despawn_mins,
+          max_collectors: 1
+        })
+      })
+    }
     if (!res.ok) throw new Error(await res.text())
-    showToast(`${muppet.emoji} ${muppet.muppet_name} spawned on map`, 'success')
+    if (placementMode === 'event') {
+      showToast('New event created at map point', 'success')
+    } else if (explicitEvent) {
+      showToast(`${muppet.emoji} ${muppet.muppet_name} added to event`, 'success')
+    } else if (useNearestEvent) {
+      showToast(`${muppet.emoji} ${muppet.muppet_name} spawned at nearest event`, 'success')
+    } else {
+      showToast(`${muppet.emoji} ${muppet.muppet_name} spawned at custom map point`, 'success')
+    }
     togglePlaceMode()
     await loadActiveSpawns()
+    await loadEvents()
   } catch(err) {
     showToast('Spawn failed — check server logs', 'error')
     console.error(err)
@@ -720,7 +966,7 @@ async function applyGeneralSpawns() {
     const rate = parseInt(document.getElementById(`rate-${m.rarity}`)?.value||0)
     if (rate === 0) continue
     try {
-      const res = await fetch(`${BASE_URL}/spawns/random`,{
+      const res = await fetch(`${API_SPAWNS_BASE}/random`,{
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           collectible_id: id,
@@ -741,23 +987,27 @@ async function applyGeneralSpawns() {
 async function applyEventSpawns() {
   if (!selectedEvent)              { showToast('Select an event first','error'); return }
   if (!selectedEventMuppets.size)  { showToast('Select at least one muppet','error'); return }
+  if (!selectedEvent.location_id)  { showToast('Selected event has no location_id — check API/join.', 'error'); return }
 
   const btn = document.getElementById('main-action-btn')
   btn.disabled=true; btn.textContent='Spawning...'
 
-  const despawn = document.getElementById('event-despawn')?.value || '1 hour'
+  const despawnMins = parseInt(document.getElementById('event-despawn')?.value || '60', 10)
   const maxCol  = parseInt(document.getElementById('event-max-collectors')?.value||1)
+  const spawn_time = datetimeLocalToSpawnISO(document.getElementById('event-spawn-time')?.value)
 
   let spawned=0, failed=0
 
   for (const id of selectedEventMuppets) {
     try {
-      const res = await fetch(`${BASE_URL}/spawns/admin`,{
+      const res = await fetch(`${API_SPAWNS_BASE}/admin`,{
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           collectible_id: id,
           event_id:       selectedEvent.event_id,
-          despawn_after:  despawn,
+          location_id:    selectedEvent.location_id,
+          spawn_time,
+          despawn_after:  despawnMins,
           max_collectors: maxCol
         })
       })
@@ -803,8 +1053,8 @@ async function killSpawn(spawnId) {
   const sp  = activeSpawns.find(s => s.id === spawnId)
   const m   = MUPPETS.find(x => x.collectible_id === sp?.collectible_id)
   try {
-    // PUT /spawns/<id>/expire — add this route to Flask if not already there
-    const res = await fetch(`${BASE_URL}/spawns/${spawnId}/expire`,{method:'PUT'})
+    // PUT /collectibles/spawns/<id>/expire (collectibles blueprint)
+    const res = await fetch(`${API_SPAWNS_BASE}/${spawnId}/expire`,{method:'PUT'})
     if (!res.ok) throw new Error()
   } catch {
     // fall back to local removal if endpoint missing
