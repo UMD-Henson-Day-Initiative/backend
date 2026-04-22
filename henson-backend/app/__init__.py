@@ -1,6 +1,7 @@
 
 """Main application package."""
 from flask import Flask
+from flask_cors import CORS
 
 from .settings import Config
 
@@ -9,6 +10,11 @@ def create_app():
     
     # Load config
     app.config.from_object(Config)
+    CORS(
+        app,
+        resources={r"/*": {"origins": app.config["CORS_ORIGINS"]}},
+        supports_credentials=False,
+    )
 
     # Register blueprints
     from .routes.users import users_bp

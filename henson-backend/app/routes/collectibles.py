@@ -15,6 +15,47 @@ def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _parse_spawn_time_to_utc(data: dict) -> datetime:
+    """Parse optional JSON spawn_time (ISO8601). Empty/missing → now UTC. Naive strings → UTC."""
+    raw = data.get("spawn_time")
+    if raw is None or raw == "":
+        return datetime.now(timezone.utc)
+    s = str(raw).strip()
+    if s.endswith("Z") and "+00:00" not in s:
+        s = s[:-1] + "+00:00"
+    dt = datetime.fromisoformat(s)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _resolve_or_create_location_id(data: dict) -> str:
+    """Use provided location_id, else create an active location from lat/lng."""
+    if data.get("location_id"):
+        return _parse_uuid(data.get("location_id"), "location_id")
+
+    lat = _parse_float(data.get("lat"), "lat")
+    lng = _parse_float(data.get("lng"), "lng")
+    location_name = (data.get("location_name") or "").strip() or "Admin placed location"
+
+    try:
+        loc_res = supabase.table("locations").insert(
+            {
+                "name": location_name,
+                "latitude": lat,
+                "longitude": lng,
+                "is_active": True,
+            }
+        ).execute()
+    except APIError as e:
+        raise ValueError(_api_error_payload(e).get("message", "failed to create location")) from e
+
+    rows = loc_res.data or []
+    if not rows or not rows[0].get("id"):
+        raise ValueError("failed to create location")
+    return str(rows[0]["id"])
+
+
 def _parse_uuid(value, field_name: str) -> str:
     if value is None or value == "":
         raise ValueError(f"{field_name} is required")
@@ -262,3 +303,164 @@ def get_leaderboard():
         )
 
     return jsonify(ranked), 200
+
+# GET /spawns/active
+# Called on dashboard load to populate the active spawns
+# list and place emoji markers on the map
+@collectibles_bp.route("/spawns/active", methods=["GET"])
+def get_active_spawns():
+    now = _iso_now()
+    try:
+        result = supabase.table("collectible_spawns") \
+            .select("*, collectibles(muppet_name, rarity), locations(latitude, longitude)") \
+            .eq("spawn_status", "active") \
+            .gt("despawn_time", now) \
+            .execute()
+    except APIError as e:
+        return jsonify({"error": _api_error_payload(e).get("message", "database error")}), 502
+    rows = []
+    for s in (result.data or []):
+        raw_loc = s.get("locations")
+        loc = (raw_loc[0] if isinstance(raw_loc, list) and raw_loc else raw_loc) or {}
+        rows.append(
+            {
+                **s,
+                "lat": s.get("lat") if s.get("lat") is not None else loc.get("latitude"),
+                "lng": s.get("lng") if s.get("lng") is not None else loc.get("longitude"),
+            }
+        )
+    return jsonify(rows), 200
+
+
+# PUT /spawns/<id>/expire
+# Called when admin clicks the ✕ button next to
+# a spawn in the active spawns list
+@collectibles_bp.route("/spawns/<id>/expire", methods=["PUT"])
+def expire_spawn(id):
+    try:
+        _parse_uuid(id, "id")
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    try:
+        result = supabase.table("collectible_spawns") \
+            .update({"spawn_status": "expired"}) \
+            .eq("id", id) \
+            .eq("spawn_status", "active") \
+            .execute()
+    except APIError as e:
+        return jsonify({"error": _api_error_payload(e).get("message", "database error")}), 502
+    if not result.data:
+        return jsonify({"error": "Spawn not found or already expired"}), 404
+    return jsonify({"success": True}), 200
+
+# POST /spawns/random
+@collectibles_bp.route("/spawns/random", methods=["POST"])
+def create_random_spawn():
+    data = request.get_json()
+    if not data or not data.get("collectible_id") or not data.get("despawn_time"):
+        return jsonify({"error": "collectible_id and despawn_time are required"}), 400
+
+    try:
+        collectible_id = _parse_uuid(data.get("collectible_id"), "collectible_id")
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    spawn_at = _parse_spawn_time_to_utc(data)
+    try:
+        result = supabase.table("collectible_spawns").insert({
+            "collectible_id": collectible_id,
+            "event_id":       data.get("event_id"),
+            "spawn_time":     spawn_at.isoformat(),
+            "despawn_time":   data.get("despawn_time"),
+            "spawn_mode":     "random",
+            "spawn_status":   "active"
+        }).execute()
+    except APIError as e:
+        return jsonify({"error": _api_error_payload(e).get("message", "database error")}), 502
+
+    return jsonify(result.data[0]), 201
+
+# POST /spawns/admin
+@collectibles_bp.route("/spawns/admin", methods=["POST"])
+def admin_spawn_collectible():
+    data = request.get_json()
+    if not data or not data.get("collectible_id"):
+        return jsonify({"error": "collectible_id is required"}), 400
+
+    try:
+        collectible_id = _parse_uuid(data.get("collectible_id"), "collectible_id")
+        location_id = _resolve_or_create_location_id(data)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    despawn_mins = int(data.get("despawn_after", 60))
+    from datetime import timedelta
+
+    spawn_at = _parse_spawn_time_to_utc(data)
+    despawn_at = spawn_at + timedelta(minutes=despawn_mins)
+
+    try:
+        result = supabase.table("collectible_spawns").insert({
+            "collectible_id": collectible_id,
+            "event_id":       data.get("event_id"),
+            "location_id":    location_id,
+            "spawn_time":     spawn_at.isoformat(),
+            "despawn_time":   despawn_at.isoformat(),
+            "spawn_mode":     "scheduled",
+            "spawn_status":   "active",
+            "max_collectors": data.get("max_collectors", 1)
+        }).execute()
+    except APIError as e:
+        return jsonify({"error": _api_error_payload(e).get("message", "database error")}), 502
+
+    return jsonify({"spawn_id": result.data[0]["id"]}), 201
+
+
+# POST /spawns/admin-event
+# Create a location-backed event from map click.
+@collectibles_bp.route("/spawns/admin-event", methods=["POST"])
+def admin_spawn_with_new_event():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "request body is required"}), 400
+
+    try:
+        location_id = _resolve_or_create_location_id(data)
+        event_start = _parse_spawn_time_to_utc(data)
+        event_duration_mins = int(data.get("event_duration_mins", 120))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    from datetime import timedelta
+    event_end = event_start + timedelta(minutes=event_duration_mins)
+    event_name = (data.get("event_name") or "").strip() or "Admin Placed Event"
+    event_category = (data.get("event_category") or "").strip() or "other"
+    organizer = (data.get("organizer") or "").strip() or "Admin Dashboard"
+    description = (data.get("description") or "").strip() or "Created from admin map placement"
+
+    try:
+        event_res = (
+            supabase.table("events")
+            .insert(
+                {
+                    "name": event_name,
+                    "location_id": location_id,
+                    "start_time": event_start.isoformat(),
+                    "end_time": event_end.isoformat(),
+                    "category": event_category,
+                    "organizer": organizer,
+                    "description": description,
+                    "is_active": True,
+                }
+            )
+            .execute()
+        )
+    except APIError as e:
+        return jsonify({"error": _api_error_payload(e).get("message", "failed to create event")}), 502
+
+    event_rows = event_res.data or []
+    if not event_rows or not event_rows[0].get("id"):
+        return jsonify({"error": "failed to create event"}), 500
+    event_id = str(event_rows[0]["id"])
+    return jsonify({"event_id": event_id, "location_id": location_id}), 201
+
