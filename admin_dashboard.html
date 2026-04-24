@@ -12,13 +12,13 @@
 :root {
   --bg:#0e0f0c;--panel:#15160f;--border:#2a2c1f;--accent:#c8f135;
   --accent2:#f1c835;--accent3:#35c8f1;--muted:#5a5e42;--text:#e8ead8;
-  --text2:#a8aa8a;--common:#6b7280;--rare:#3b82f6;--epic:#8b5cf6;
+  --text2:#bcc17f;--common:#6b7280;--rare:#3b82f6;--epic:#8b5cf6;
   --legendary:#f59e0b;--danger:#ef4444;--success:#22c55e;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;display:flex;overflow:hidden;}
 
-/* SIDEBAR */
+/* ── SIDEBAR ── */
 .sidebar{width:220px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:24px 0;z-index:10;}
 .logo{padding:0 20px 24px;border-bottom:1px solid var(--border);}
 .logo-title{font-family:'Fraunces',serif;font-size:1.2rem;font-weight:900;color:var(--accent);line-height:1.1;}
@@ -32,22 +32,33 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .status-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--success);margin-right:6px;box-shadow:0 0 6px var(--success);}
 .status-dot.err{background:var(--danger);box-shadow:0 0 6px var(--danger);}
 
-/* MAIN */
+/* ── MAIN ── */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
 .topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:16px;flex-shrink:0;}
 .topbar-title{font-family:'Fraunces',serif;font-size:1rem;font-weight:700;}
 .topbar-badge{font-size:.6rem;padding:2px 8px;border-radius:99px;background:rgba(200,241,53,.1);color:var(--accent);border:1px solid rgba(200,241,53,.2);letter-spacing:.08em;text-transform:uppercase;}
 .topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
 
-/* BUTTONS */
+/* ── BUTTONS ── */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;font-family:'DM Mono',monospace;font-size:.68rem;cursor:pointer;border:none;transition:all .15s;letter-spacing:.03em;}
 .btn-primary{background:var(--accent);color:#0e0f0c;font-weight:500;}
 .btn-primary:hover{background:#d4f54a;transform:translateY(-1px);}
 .btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none;}
 .btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);}
 .btn-ghost:hover{color:var(--text);border-color:var(--muted);}
+.btn-danger-soft{background:rgba(239,68,68,.08);color:var(--danger);border:1px solid rgba(239,68,68,.2);}
+.btn-danger-soft:hover{background:rgba(239,68,68,.15);}
 
-/* LOADING */
+/* ── TOGGLE ── */
+.toggle-switch{position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;}
+/* Full hit-target + stacking so clicks update :checked (zero-size inputs are flaky in some browsers) */
+.toggle-switch input{position:absolute;opacity:0;margin:0;inset:0;width:100%;height:100%;cursor:pointer;z-index:2;}
+.toggle-slider{position:absolute;inset:0;background:var(--border);border-radius:22px;cursor:pointer;transition:background .2s;}
+.toggle-slider::before{content:'';position:absolute;width:16px;height:16px;left:3px;bottom:3px;background:var(--muted);border-radius:50%;transition:transform .2s,background .2s;}
+.toggle-switch input:checked+.toggle-slider{background:rgba(200,241,53,.15);border:1px solid var(--accent);}
+.toggle-switch input:checked+.toggle-slider::before{transform:translateX(18px);background:var(--accent);}
+
+/* ── LOADING ── */
 .loading-overlay{position:fixed;inset:0;background:rgba(14,15,12,.88);display:flex;align-items:center;justify-content:center;z-index:9000;backdrop-filter:blur(4px);transition:opacity .3s;}
 .loading-overlay.hidden{opacity:0;pointer-events:none;}
 .loading-box{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:32px 40px;text-align:center;}
@@ -55,17 +66,17 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 @keyframes spin{to{transform:rotate(360deg);}}
 .loading-text{font-size:.72rem;color:var(--muted);}
 
-/* CONTENT */
+/* ── CONTENT ── */
 .content{flex:1;overflow-y:auto;overflow-x:hidden;}
 .tab-panel{display:none;height:100%;}
 .tab-panel.active{display:flex;flex-direction:column;height:100%;}
 
-/* CARDS */
+/* ── CARDS ── */
 .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:20px;}
 .card-title{font-family:'Fraunces',serif;font-size:.85rem;font-weight:700;color:var(--text);margin-bottom:4px;}
 .card-sub{font-size:.62rem;color:var(--muted);margin-bottom:16px;letter-spacing:.05em;}
 
-/* RARITY CARDS */
+/* ── RARITY CARDS ── */
 .rarity-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px;position:relative;overflow:hidden;}
 .rarity-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
 .rarity-card.common::before{background:var(--common);}
@@ -87,14 +98,15 @@ input[type=range]{flex:2;-webkit-appearance:none;height:3px;border-radius:2px;ou
 .legendary input[type=range]{background:linear-gradient(to right,var(--legendary) var(--pct,5%),var(--border) var(--pct,5%));}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--text);cursor:pointer;}
 
-/* CHIPS */
+/* ── CHIPS ── */
 .collectible-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;margin-top:10px;}
-.collectible-chip{padding:8px 6px;border-radius:6px;border:1px solid var(--border);text-align:center;cursor:pointer;transition:all .15s;font-size:.6rem;color:var(--text2);}
-.collectible-chip:hover{border-color:var(--muted);color:var(--text);}
-.collectible-chip.selected{border-color:var(--accent);color:var(--accent);background:rgba(200,241,53,.06);}
+.collectible-chip{padding:8px 6px;border-radius:6px;border:1px solid var(--border);text-align:center;cursor:default;font-size:.6rem;color:var(--text2);}
 .collectible-chip .chip-emoji{font-size:1.4rem;display:block;margin-bottom:4px;}
+.collectible-chip .coll-avatar,.muppet-card .coll-avatar{margin:0 auto 6px;}
+.spawn-row .spawn-thumb-wrap{width:28px;height:28px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.spawn-row .spawn-thumb{width:28px;height:28px;border-radius:6px;object-fit:cover;border:1px solid var(--border);background:var(--panel);}
 
-/* RATE PILLS */
+/* ── RATE PILLS ── */
 .spawn-rate-summary{display:flex;gap:8px;flex-wrap:wrap;}
 .rate-pill{padding:4px 10px;border-radius:99px;font-size:.62rem;border:1px solid;}
 .rate-pill.common{background:rgba(107,114,128,.1);color:var(--common);border-color:rgba(107,114,128,.3);}
@@ -102,7 +114,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 .rate-pill.epic{background:rgba(139,92,246,.1);color:var(--epic);border-color:rgba(139,92,246,.3);}
 .rate-pill.legendary{background:rgba(245,158,11,.1);color:var(--legendary);border-color:rgba(245,158,11,.3);}
 
-/* EVENTS */
+/* ── EVENTS ── */
 .event-list{display:flex;flex-direction:column;gap:8px;}
 .event-row{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--panel);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .15s;}
 .event-row:hover{border-color:var(--muted);}
@@ -121,17 +133,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 .muppet-card:hover{border-color:var(--muted);transform:translateY(-1px);}
 .muppet-card.selected{border-color:var(--accent2);background:rgba(241,200,53,.06);}
 .muppet-card .muppet-emoji{font-size:1.8rem;display:block;margin-bottom:6px;}
+.muppet-card .coll-avatar{margin-bottom:6px;}
 .muppet-card .muppet-name{font-size:.62rem;color:var(--text2);}
 .muppet-card.selected .muppet-name{color:var(--accent2);}
 
-/* BADGES */
+/* ── BADGES ── */
 .rarity-badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:99px;font-size:.58rem;letter-spacing:.06em;text-transform:uppercase;margin-top:4px;}
 .badge-common{background:rgba(107,114,128,.15);color:var(--common);}
 .badge-rare{background:rgba(59,130,246,.15);color:var(--rare);}
 .badge-epic{background:rgba(139,92,246,.15);color:var(--epic);}
 .badge-legendary{background:rgba(245,158,11,.15);color:var(--legendary);}
 
-/* MAP */
+/* ── MAP ── */
 #tab-map{position:relative;flex:1;}
 #map{width:100%;height:100%;min-height:500px;}
 .map-overlay{position:absolute;top:16px;left:16px;z-index:1000;pointer-events:none;}
@@ -148,26 +161,27 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 .place-select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:.68rem;padding:7px 10px;outline:none;margin-bottom:8px;cursor:pointer;}
 .place-select option{background:var(--panel);}
 
-/* FORMS */
+/* ── FORMS ── */
 .form-row{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;}
 .form-label{font-size:.62rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;}
 .form-input{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:.72rem;padding:8px 10px;outline:none;transition:border-color .15s;}
 .form-input:focus{border-color:var(--muted);}
 
-/* SPAWN LIST */
-.spawn-list{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;}
+/* ── SPAWN LIST ── */
+.spawn-list{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;}
 .spawn-row{display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:6px;font-size:.65rem;}
 .spawn-emoji{font-size:1.1rem;}
+.map-mup-icon img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;}
 .spawn-info{flex:1;}
 .spawn-name{color:var(--text);margin-bottom:2px;}
 .spawn-meta{color:var(--muted);font-size:.58rem;}
 .spawn-kill{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.8rem;padding:2px 6px;border-radius:4px;transition:all .15s;}
 .spawn-kill:hover{color:var(--danger);background:rgba(239,68,68,.1);}
 
-/* EMPTY */
+/* ── EMPTY ── */
 .empty-state{font-size:.65rem;color:var(--muted);padding:12px 0;text-align:center;}
 
-/* TOAST */
+/* ── TOAST ── */
 .toast-container{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
 .toast{padding:10px 16px;border-radius:8px;font-size:.68rem;border:1px solid;animation:slideIn .2s ease;display:flex;align-items:center;gap:8px;}
 .toast.success{background:rgba(34,197,94,.1);color:var(--success);border-color:rgba(34,197,94,.3);}
@@ -182,7 +196,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 .section-label{font-size:.6rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px;}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 
-/* Leaflet */
+/* ── LEAFLET ── */
 .leaflet-container{background:#1a1c12 !important;}
 .leaflet-tile{filter:brightness(.7) saturate(.6);}
 .leaflet-popup-content-wrapper{background:#15160f;border:1px solid #2a2c1f;border-radius:8px;box-shadow:none;color:#e8ead8;}
@@ -191,6 +205,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 </head>
 <body>
 
+<!-- LOADING -->
 <div class="loading-overlay" id="loading-overlay">
   <div class="loading-box">
     <div class="spinner"></div>
@@ -198,6 +213,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
   </div>
 </div>
 
+<!-- SIDEBAR -->
 <aside class="sidebar">
   <div class="logo">
     <div class="logo-title">Muppet<br>Admin</div>
@@ -214,71 +230,107 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
   </div>
 </aside>
 
+<!-- MAIN -->
 <main class="main">
   <div class="topbar">
     <span class="topbar-title" id="topbar-title">General Spawns</span>
     <span class="topbar-badge" id="topbar-badge">Configure Rates</span>
     <div class="topbar-right">
       <button class="btn btn-ghost" onclick="refreshAll()">↻ Refresh</button>
-      <button class="btn btn-primary" id="main-action-btn" onclick="handleMainAction()">▶ Apply Spawns</button>
+      <button class="btn btn-primary" id="main-action-btn" onclick="handleMainAction()">💾 Save Config</button>
     </div>
   </div>
 
   <div class="content">
 
-    <!-- GENERAL TAB -->
+    <!-- ══ GENERAL SPAWNS TAB ══ -->
     <div class="tab-panel active" id="tab-general">
       <div class="grid-2" style="padding:24px;align-items:start;">
 
+        <!-- LEFT: rarity sliders -->
         <div style="display:flex;flex-direction:column;gap:16px;">
-          <div class="section-label">Spawn Rate by Rarity</div>
+          <div class="section-label">Spawn Rate by Rarity (per hour)</div>
+
           <div class="rarity-card common">
             <div class="rarity-label">Common</div>
-            <div class="slider-row"><span class="slider-label">Rate / min</span><input type="range" min="0" max="10" value="6" id="rate-common" oninput="updateSlider(this,'val-common')"><span class="slider-val" id="val-common">6</span></div>
-            <div class="slider-row"><span class="slider-label">Max active</span><input type="range" min="0" max="20" value="12" id="max-common" oninput="updateSlider(this,'maxval-common')"><span class="slider-val" id="maxval-common">12</span></div>
+            <div class="slider-row"><span class="slider-label">Rate / hr</span><input type="range" min="0" max="20" value="6" id="rate-common" oninput="updateSlider(this,'val-common')"><span class="slider-val" id="val-common">6</span></div>
+            <div class="slider-row"><span class="slider-label">Max active</span><input type="range" min="0" max="40" value="12" id="max-common" oninput="updateSlider(this,'maxval-common')"><span class="slider-val" id="maxval-common">12</span></div>
           </div>
+
           <div class="rarity-card rare">
             <div class="rarity-label">Rare</div>
-            <div class="slider-row"><span class="slider-label">Rate / min</span><input type="range" min="0" max="10" value="3" id="rate-rare" oninput="updateSlider(this,'val-rare')"><span class="slider-val" id="val-rare">3</span></div>
-            <div class="slider-row"><span class="slider-label">Max active</span><input type="range" min="0" max="20" value="6" id="max-rare" oninput="updateSlider(this,'maxval-rare')"><span class="slider-val" id="maxval-rare">6</span></div>
+            <div class="slider-row"><span class="slider-label">Rate / hr</span><input type="range" min="0" max="20" value="3" id="rate-rare" oninput="updateSlider(this,'val-rare')"><span class="slider-val" id="val-rare">3</span></div>
+            <div class="slider-row"><span class="slider-label">Max active</span><input type="range" min="0" max="40" value="6" id="max-rare" oninput="updateSlider(this,'maxval-rare')"><span class="slider-val" id="maxval-rare">6</span></div>
           </div>
+
           <div class="rarity-card epic">
             <div class="rarity-label">Epic</div>
-            <div class="slider-row"><span class="slider-label">Rate / min</span><input type="range" min="0" max="10" value="1" id="rate-epic" oninput="updateSlider(this,'val-epic')"><span class="slider-val" id="val-epic">1</span></div>
-            <div class="slider-row"><span class="slider-label">Max active</span><input type="range" min="0" max="20" value="3" id="max-epic" oninput="updateSlider(this,'maxval-epic')"><span class="slider-val" id="maxval-epic">3</span></div>
+            <div class="slider-row"><span class="slider-label">Rate / hr</span><input type="range" min="0" max="20" value="1" id="rate-epic" oninput="updateSlider(this,'val-epic')"><span class="slider-val" id="val-epic">1</span></div>
+            <div class="slider-row"><span class="slider-label">Max active</span><input type="range" min="0" max="40" value="3" id="max-epic" oninput="updateSlider(this,'maxval-epic')"><span class="slider-val" id="maxval-epic">3</span></div>
           </div>
+
           <div class="rarity-card legendary">
             <div class="rarity-label">Legendary</div>
-            <div class="slider-row"><span class="slider-label">Rate / min</span><input type="range" min="0" max="10" value="0" id="rate-legendary" oninput="updateSlider(this,'val-legendary')"><span class="slider-val" id="val-legendary">0</span></div>
-            <div class="slider-row"><span class="slider-label">Max active</span><input type="range" min="0" max="20" value="1" id="max-legendary" oninput="updateSlider(this,'maxval-legendary')"><span class="slider-val" id="maxval-legendary">1</span></div>
+            <div class="slider-row"><span class="slider-label">Rate / hr</span><input type="range" min="0" max="20" value="0" id="rate-legendary" oninput="updateSlider(this,'val-legendary')"><span class="slider-val" id="val-legendary">0</span></div>
+            <div class="slider-row"><span class="slider-label">Max active</span><input type="range" min="0" max="40" value="1" id="max-legendary" oninput="updateSlider(this,'maxval-legendary')"><span class="slider-val" id="maxval-legendary">1</span></div>
           </div>
         </div>
 
+        <!-- RIGHT: config summary + active spawns -->
         <div style="display:flex;flex-direction:column;gap:16px;">
+
+          <!-- Muppets in pool (read-only display) -->
           <div class="card">
-            <div class="card-title">Select Muppets to Include</div>
-            <div class="card-sub">Only selected muppets enter the spawn pool</div>
-            <div class="collectible-grid" id="general-muppet-grid"><div class="empty-state">Loading...</div></div>
+            <div class="card-title">Muppets in Spawn Pool</div>
+            <div class="card-sub">All muppets spawn by rarity — managed in the collectibles table</div>
+            <div class="collectible-grid" id="general-muppet-grid">
+              <div class="empty-state">Loading...</div>
+            </div>
           </div>
+
+          <!-- Config summary + toggle + save -->
           <div class="card">
-            <div class="card-title">Current Config</div>
-            <div class="card-sub">Summary of what will be applied</div>
+            <div class="card-title">Spawn Config</div>
+            <div class="card-sub">Rates applied every hour by the backend task</div>
             <div class="spawn-rate-summary" id="rate-summary"></div>
+
+            <div class="divider"></div>
+
+            <!-- Active toggle -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+              <div>
+                <div style="font-size:.72rem;color:var(--text);">Random spawning</div>
+                <div style="font-size:.6rem;color:var(--muted);margin-top:2px;">Runs every hour via backend scheduler</div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="spawn-active-toggle">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="saveSpawnConfig()">
+              💾 Save Config
+            </button>
+
             <div class="divider"></div>
             <div class="section-label">Active Spawns</div>
-            <div class="spawn-list" id="active-spawns-list"><div class="empty-state">Loading...</div></div>
+            <div class="spawn-list" id="active-spawns-list">
+              <div class="empty-state">Loading...</div>
+            </div>
           </div>
-        </div>
 
+        </div>
       </div>
     </div>
 
-    <!-- EVENTS TAB -->
+    <!-- ══ EVENT SPAWNS TAB ══ -->
     <div class="tab-panel" id="tab-events">
       <div class="grid-2" style="padding:24px;align-items:start;">
         <div>
           <div class="section-label">Select Event</div>
-          <div class="event-list" id="event-list"><div class="empty-state">Loading events...</div></div>
+          <div class="event-list" id="event-list">
+            <div class="empty-state">Loading events...</div>
+          </div>
         </div>
         <div class="spawn-panel" id="event-spawn-panel">
           <div class="empty-state" style="padding:40px 0;">← Select an event to configure spawns</div>
@@ -286,9 +338,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
       </div>
     </div>
 
-    <!-- MAP TAB -->
+    <!-- ══ MAP TAB ══ -->
     <div class="tab-panel" id="tab-map" style="position:relative;overflow:hidden;">
       <div id="map"></div>
+
+      <!-- Legend -->
       <div class="map-overlay">
         <div class="map-panel">
           <div class="map-panel-title">Legend</div>
@@ -296,9 +350,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
             <div class="legend-row"><span class="legend-dot" style="background:var(--accent2)"></span>Active event</div>
             <div class="legend-row"><span class="legend-dot" style="background:var(--accent3)"></span>Upcoming event</div>
             <div class="legend-row"><span class="legend-dot" style="background:var(--muted)"></span>Past event</div>
+            <div class="legend-row"><span class="legend-dot" style="background:var(--success)"></span>Random spawn</div>
           </div>
         </div>
       </div>
+
+      <!-- Map controls -->
       <div class="map-controls">
         <div class="map-place-panel">
           <div class="map-panel-title">Map Placer</div>
@@ -310,6 +367,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
             </select>
           </div>
           <button class="place-mode-btn" id="place-mode-btn" onclick="togglePlaceMode()">+ Click map to place</button>
+
+          <!-- Collectible fields -->
           <div id="map-collectible-fields">
             <div class="form-row">
               <label class="form-label">Muppet</label>
@@ -325,13 +384,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
               </select>
             </div>
           </div>
+
+          <!-- Event fields -->
           <div id="map-event-fields" style="display:none;">
-            <div class="form-row" id="map-event-name-row">
-            <label class="form-label">Event name</label>
-            <input class="place-select" id="map-event-name" placeholder="Admin Placed Event" />
+            <div class="form-row">
+              <label class="form-label">Event name</label>
+              <input class="place-select" id="map-event-name" placeholder="Admin Placed Event"/>
             </div>
-            <div class="form-row" id="map-event-duration-row">
-              <label class="form-label">Event duration</label>
+            <div class="form-row">
+              <label class="form-label">Duration</label>
               <select class="place-select" id="map-event-duration">
                 <option value="60">1 hour</option>
                 <option value="120" selected>2 hours</option>
@@ -339,8 +400,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
                 <option value="240">4 hours</option>
               </select>
             </div>
-            <div class="form-row" id="map-event-category-row">
-              <label class="form-label">Event category</label>
+            <div class="form-row">
+              <label class="form-label">Category</label>
               <select class="place-select" id="map-event-category">
                 <option value="other" selected>Other</option>
                 <option value="social">Social</option>
@@ -352,14 +413,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
               </select>
             </div>
           </div>
+
           <div class="form-row">
             <label class="form-label">Start time (local)</label>
-            <input type="datetime-local" class="place-select" id="map-spawn-time" step="60" />
+            <input type="datetime-local" class="place-select" id="map-spawn-time" step="60"/>
           </div>
+
           <div id="map-coords" style="font-size:.6rem;color:var(--muted);margin-bottom:10px;display:none;">
             📍 <span id="coords-display"></span>
           </div>
-          <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="confirmMapPlace()" id="map-place-confirm" disabled>Create</button>
+          <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="confirmMapPlace()" id="map-place-confirm" disabled>
+            Create
+          </button>
         </div>
       </div>
     </div>
@@ -371,64 +436,106 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────────
-// Change this to your deployed URL in production
+// Must match app/__init__.py (autoapp.py): blueprint url_prefix + @route paths.
 const BASE_URL = 'http://127.0.0.1:5000'
-// Flask mounts blueprints with a prefix that matches the first path segment, e.g.
-// collectibles_bp at /collectibles + route /collectibles → /collectibles/collectibles
-const API_COLLECTIBLES = `${BASE_URL}/collectibles/collectibles`
-const API_EVENTS       = `${BASE_URL}/events/events`
-// collectibles_bp is mounted at /collectibles; spawn routes live on that blueprint
-const API_SPAWNS_BASE   = `${BASE_URL}/collectibles/spawns`
-const API_SPAWNS_ACTIVE = `${API_SPAWNS_BASE}/active`
+const BP_COLLECTIBLES = `${BASE_URL}/collectibles`  // collectibles_bp
+const BP_EVENTS       = `${BASE_URL}/events`        // events_bp
+
+const API_COLLECTIBLES       = `${BP_COLLECTIBLES}/collectibles`   // GET list
+const API_EVENTS             = `${BP_EVENTS}/events`               // GET list (active)
+const API_SPAWNS_BASE        = `${BP_COLLECTIBLES}/spawns`         // spawn sub-routes on collectibles_bp
+const API_SPAWNS_ACTIVE      = `${API_SPAWNS_BASE}/active`
+const API_SPAWNS_CONFIG       = `${API_SPAWNS_BASE}/config`
+const API_SPAWNS_CONFIG_ACTIVE = `${API_SPAWNS_CONFIG}/is-active`
+const API_SPAWNS_ADMIN       = `${API_SPAWNS_BASE}/admin`
+const API_SPAWNS_RANDOM      = `${API_SPAWNS_BASE}/random`
 const API_SPAWNS_ADMIN_EVENT = `${API_SPAWNS_BASE}/admin-event`
 
-// Emoji lookup — your DB stores muppet_name as text, we map to emoji here
+/** If collectibles rows store only a path or storage object id, set this (no trailing slash). Example: https://xxx.supabase.co/storage/v1/object/public/your-bucket */
+const COLLECTIBLE_IMAGE_BASE = ''
+
 const MUPPET_EMOJIS = {
   'Kermit':'🐸','Miss Piggy':'🐷','Fozzie':'🐻','Gonzo':'🎭',
   'Animal':'🥁','Scooter':'🛵','Rowlf':'🎹','Sam Eagle':'🦅',
   'Beaker':'🧪','Chef':'👨‍🍳'
 }
 
-/** `datetime-local` value (browser-local wall clock). */
-function formatDatetimeLocal(d) {
-  const p = n => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+function escapeAttr(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 }
 
-/** Convert `<input type="datetime-local">` value → UTC ISO8601 for the API. */
-function datetimeLocalToSpawnISO(localStr) {
-  if (!localStr || !String(localStr).trim()) return new Date().toISOString()
-  const t = new Date(localStr)
-  if (Number.isNaN(t.getTime())) return new Date().toISOString()
-  return t.toISOString()
+/** Build display URL from collectibles API row (muppet_image_url, image_url, or id + COLLECTIBLE_IMAGE_BASE). */
+function resolveCollectibleImageUrl(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  const url = String(raw.muppet_image_url || raw.image_url || '').trim()
+  const id = raw.muppet_image_id ?? raw.image_id ?? raw.muppet_image_path ?? null
+  const base = String(COLLECTIBLE_IMAGE_BASE || '').replace(/\/$/, '')
+
+  if (url) {
+    if (/^https?:\/\//i.test(url) || url.startsWith('//') || url.startsWith('data:')) return url
+    if (base) return `${base}/${url.replace(/^\//, '')}`
+    return url
+  }
+  if (id != null && String(id).trim() !== '' && base) {
+    return `${base}/${String(id).replace(/^\//, '')}`
+  }
+  return null
+}
+
+/** Avatar: DB image when URL resolves, else emoji. */
+function collectibleAvatarHtml(m, size) {
+  const u = m.display_image_url
+  const em = m.emoji || '🎭'
+  const alt = escapeAttr(m.muppet_name || 'Collectible')
+  const fallback = `<span class="chip-emoji" style="font-size:${Math.min(size * 0.72, 26)}px;line-height:1;display:flex;align-items:center;justify-content:center;height:${size}px">${em}</span>`
+  if (!u) return fallback
+  return `<div class="coll-avatar" style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;">`
+    + `<img src="${escapeAttr(u)}" alt="${alt}" width="${size}" height="${size}" loading="lazy" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:6px;border:1px solid var(--border);background:var(--panel);" `
+    + `onerror="this.style.display='none';const s=this.nextElementSibling;if(s)s.style.display='flex';">`
+    + `<span class="chip-emoji" style="display:none;font-size:${Math.min(size * 0.72, 26)}px;line-height:1;align-items:center;justify-content:center;height:${size}px">${em}</span>`
+    + `</div>`
+}
+
+/** Tiny map / marker icon (returns HTML string). */
+function collectibleMarkerInnerHtml(m, px) {
+  const u = m?.display_image_url
+  const em = m?.emoji || '🎭'
+  if (!u) return `<span style="font-size:${px * 0.9}px">${em}</span>`
+  return `<span class="map-mup-icon" style="width:${px}px;height:${px}px;display:block;overflow:hidden;border-radius:50%;">`
+    + `<img src="${escapeAttr(u)}" alt="" width="${px}" height="${px}" style="width:${px}px;height:${px}px;object-fit:cover;" onerror="this.parentElement.outerHTML='<span style=&quot;font-size:${px * 0.9}px&quot;>${em}</span>'">`
+    + `</span>`
 }
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let MUPPETS = [], EVENTS = [], activeSpawns = []
-let selectedMuppets = new Set()
 let selectedEvent = null, selectedEventMuppets = new Set()
 let map = null, placeMode = false
-let pendingMarker = null, pendingCoords = null
-let pendingEventPlacement = null
+let pendingMarker = null, pendingCoords = null, pendingEventPlacement = null
 let mapSpawnLayers = [], mapEventLayers = [], currentTab = 'general'
+/** When true, spawn-active-toggle `change` must not POST (programmatic sync from server). */
+let spawnActiveToggleSyncing = false
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  const mapSpawnEl = document.getElementById('map-spawn-time')
+  if (mapSpawnEl) mapSpawnEl.value = formatDatetimeLocal(new Date())
   await loadAllData()
   document.querySelectorAll('input[type=range]').forEach(updateSliderFill)
   updateRateSummary()
+
+  const spawnToggle = document.getElementById('spawn-active-toggle')
+  if (spawnToggle) spawnToggle.addEventListener('change', onRandomSpawnToggleChange)
 })
 
 // ── DATA LOADING ──────────────────────────────────────────────────────────────
 async function loadAllData() {
   showLoading(true)
   try {
-    // fetch collectibles, events and active spawns in parallel
-    await Promise.all([loadMuppets(), loadEvents(), loadActiveSpawns()])
+    await Promise.all([loadMuppets(), loadEvents(), loadActiveSpawns(), loadSpawnConfig()])
     setConnectionStatus(true)
   } catch(err) {
     setConnectionStatus(false)
-    const hint = err.message && err.message.includes('fetch')
+    const hint = err.message?.includes('fetch')
       ? 'Network error — is Flask running on port 5000?'
       : (err.message || 'Failed to load data from backend')
     showToast(hint, 'error')
@@ -439,31 +546,25 @@ async function loadAllData() {
 }
 
 async function loadMuppets() {
-  const res  = await fetch(API_COLLECTIBLES)
+  const res = await fetch(API_COLLECTIBLES)
   if (!res.ok) throw new Error(`GET /collectibles/collectibles returned ${res.status}`)
   const data = await res.json()
-
-  // map DB columns to what the dashboard needs (API uses id; tolerate collectible_id)
   MUPPETS = data.map(m => ({
     collectible_id: m.collectible_id ?? m.id,
     muppet_name:    m.muppet_name,
     rarity:         m.rarity,
-    image_url:      m.muppet_image_url,
+    image_url:      m.muppet_image_url ?? m.image_url ?? null,
+    display_image_url: resolveCollectibleImageUrl(m),
     emoji:          MUPPET_EMOJIS[m.muppet_name] || '🎭'
   }))
-
-  // select all by default
-  selectedMuppets = new Set(MUPPETS.map(m => m.collectible_id))
   buildGeneralMuppetGrid()
   buildMapMuppetSelect()
 }
 
 async function loadEvents() {
-  const res  = await fetch(API_EVENTS)
+  const res = await fetch(API_EVENTS)
   if (!res.ok) throw new Error(`GET /events/events returned ${res.status}`)
   const data = await res.json()
-
-  // API returns locations(*) nested under locations (object or single-element array)
   EVENTS = data.map(e => {
     const rawLoc = e.locations
     const loc = Array.isArray(rawLoc) ? (rawLoc[0] || {}) : (rawLoc || {})
@@ -471,28 +572,26 @@ async function loadEvents() {
       event_id:      e.event_id ?? e.id,
       location_id:   loc.id ?? e.location_id ?? null,
       name:          e.name,
-      location_name: e.location_name ?? loc.name ?? loc.title ?? '',
-      latitude:      e.latitude ?? loc.latitude,
+      location_name: e.location_name ?? loc.name ?? '',
+      latitude:      e.latitude  ?? loc.latitude,
       longitude:     e.longitude ?? loc.longitude,
       start_time:    e.start_time,
       end_time:      e.end_time
     }
   })
-
   buildEventList()
 }
 
 async function loadActiveSpawns() {
-  const res  = await fetch(API_SPAWNS_ACTIVE)
+  const res = await fetch(API_SPAWNS_ACTIVE)
   if (!res.ok) {
     activeSpawns = []
     renderActiveSpawnsList()
     if (map) renderMapSpawns()
-    console.warn(`GET ${API_SPAWNS_ACTIVE} failed (${res.status}) — active spawn list left empty.`)
+    console.warn(`GET /collectibles/spawns/active failed (${res.status})`)
     return
   }
   const data = await res.json()
-
   activeSpawns = data.map(s => {
     const rawLoc = s.locations
     const loc = Array.isArray(rawLoc) ? (rawLoc[0] || {}) : (rawLoc || {})
@@ -502,15 +601,109 @@ async function loadActiveSpawns() {
       event_id:       s.event_id || null,
       max_collectors: s.max_collectors ?? 1,
       spawned_at:     s.spawn_time || s.created_at,
-      lat:            s.lat ?? loc.latitude ?? null,
+      lat:            s.lat ?? loc.latitude  ?? null,
       lng:            s.lng ?? loc.longitude ?? null
     }
   })
-
   renderActiveSpawnsList()
-  if (map) {
-    renderMapSpawns()
-    renderMapEvents()
+  if (map) { renderMapSpawns(); renderMapEvents() }
+}
+
+// ── SPAWN CONFIG ──────────────────────────────────────────────────────────────
+async function loadSpawnConfig() {
+  try {
+    const res = await fetch(API_SPAWNS_CONFIG)
+    if (!res.ok) return
+    const data = await res.json()
+
+    // restore slider values from saved config
+    const rarities = ['common','rare','epic','legendary']
+    rarities.forEach(r => {
+      const rateEl    = document.getElementById(`rate-${r}`)
+      const maxEl     = document.getElementById(`max-${r}`)
+      const rateValEl = document.getElementById(`val-${r}`)
+      const maxValEl  = document.getElementById(`maxval-${r}`)
+
+      if (rateEl && data[`rate_${r}`] !== undefined) {
+        rateEl.value = data[`rate_${r}`]
+        if (rateValEl) rateValEl.textContent = data[`rate_${r}`]
+        updateSliderFill(rateEl)
+      }
+      if (maxEl && data[`max_${r}`] !== undefined) {
+        maxEl.value = data[`max_${r}`]
+        if (maxValEl) maxValEl.textContent = data[`max_${r}`]
+        updateSliderFill(maxEl)
+      }
+    })
+
+    // restore active toggle (do not trigger POST)
+    const toggle = document.getElementById('spawn-active-toggle')
+    if (toggle) {
+      spawnActiveToggleSyncing = true
+      toggle.checked = !!data.is_active
+      spawnActiveToggleSyncing = false
+    }
+
+    updateRateSummary()
+  } catch(err) {
+    console.warn('Could not load spawn config:', err)
+  }
+}
+
+async function onRandomSpawnToggleChange(ev) {
+  if (spawnActiveToggleSyncing) return
+  const el = ev.target
+  const want = Boolean(el.checked)
+
+  try {
+    const res = await fetch(API_SPAWNS_CONFIG_ACTIVE, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ is_active: want })
+    })
+    if (!res.ok) {
+      const msg = await res.text()
+      throw new Error(msg || res.statusText)
+    }
+    const body = await res.json().catch(() => ({}))
+    const confirmed = body.is_active !== undefined ? !!body.is_active : want
+    spawnActiveToggleSyncing = true
+    el.checked = confirmed
+    spawnActiveToggleSyncing = false
+    showToast(confirmed ? 'Random spawning enabled' : 'Random spawning disabled', 'success')
+  } catch (err) {
+    spawnActiveToggleSyncing = true
+    el.checked = !want
+    spawnActiveToggleSyncing = false
+    showToast('Could not update random spawning', 'error')
+    console.error(err)
+  }
+}
+
+async function saveSpawnConfig() {
+  const rarities = ['common','rare','epic','legendary']
+  const config = {}
+
+  rarities.forEach(r => {
+    config[`rate_${r}`] = parseInt(document.getElementById(`rate-${r}`)?.value || 0)
+    config[`max_${r}`]  = parseInt(document.getElementById(`max-${r}`)?.value  || 0)
+  })
+
+  const toggle = document.getElementById('spawn-active-toggle')
+  config.is_active = Boolean(toggle && toggle.checked)
+
+  try {
+    const res = await fetch(API_SPAWNS_CONFIG, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(config)
+    })
+    if (!res.ok) throw new Error(await res.text())
+    showToast('Spawn config saved', 'success')
+    await loadSpawnConfig()
+  } catch(err) {
+    showToast('Failed to save config', 'error')
+    console.error(err)
   }
 }
 
@@ -529,7 +722,7 @@ function switchTab(tab, el) {
   currentTab = tab
 
   const meta = {
-    general: { title:'General Spawns',  badge:'Configure Rates',  action:'▶ Apply Spawns' },
+    general: { title:'General Spawns',  badge:'Configure Rates',  action:'💾 Save Config' },
     events:  { title:'Event Spawns',    badge:'Per-Event Control', action:'▶ Spawn for Event' },
     map:     { title:'Map View',        badge:'Live Map',          action:'⊕ Place Mode' }
   }
@@ -541,7 +734,7 @@ function switchTab(tab, el) {
 }
 
 function handleMainAction() {
-  if (currentTab === 'general')     applyGeneralSpawns()
+  if (currentTab === 'general')     saveSpawnConfig()
   else if (currentTab === 'events') applyEventSpawns()
   else togglePlaceMode()
 }
@@ -565,7 +758,7 @@ function updateRateSummary() {
   document.getElementById('rate-summary').innerHTML = vals
 }
 
-// ── GENERAL MUPPET GRID ───────────────────────────────────────────────────────
+// ── MUPPET GRID (display only) ────────────────────────────────────────────────
 function buildGeneralMuppetGrid() {
   const grid = document.getElementById('general-muppet-grid')
   if (!MUPPETS.length) {
@@ -573,18 +766,12 @@ function buildGeneralMuppetGrid() {
     return
   }
   grid.innerHTML = MUPPETS.map(m => `
-    <div class="collectible-chip selected" id="chip-${m.collectible_id}"
-         onclick="toggleMuppet('${m.collectible_id}',this)">
-      <span class="chip-emoji">${m.emoji}</span>
+    <div class="collectible-chip">
+      ${collectibleAvatarHtml(m, 40)}
       ${m.muppet_name}
       <div class="rarity-badge badge-${m.rarity}" style="margin-top:4px;">${m.rarity}</div>
     </div>
   `).join('')
-}
-
-function toggleMuppet(id, el) {
-  selectedMuppets.has(id) ? selectedMuppets.delete(id) : selectedMuppets.add(id)
-  el.classList.toggle('selected')
 }
 
 // ── EVENT LIST ────────────────────────────────────────────────────────────────
@@ -635,7 +822,7 @@ function buildEventSpawnPanel() {
       ${MUPPETS.map(m=>`
         <div class="muppet-card" id="event-chip-${m.collectible_id}"
              onclick="toggleEventMuppet('${m.collectible_id}',this)">
-          <span class="muppet-emoji">${m.emoji}</span>
+          ${collectibleAvatarHtml(m, 48)}
           <div class="muppet-name">${m.muppet_name}</div>
           <div class="rarity-badge badge-${m.rarity}">${m.rarity}</div>
         </div>
@@ -644,7 +831,7 @@ function buildEventSpawnPanel() {
     <div class="divider"></div>
     <div class="form-row">
       <label class="form-label">Spawn at (local)</label>
-      <input type="datetime-local" class="form-input" id="event-spawn-time" step="60" value="${spawnDefault}" />
+      <input type="datetime-local" class="form-input" id="event-spawn-time" step="60" value="${spawnDefault}"/>
     </div>
     <div class="form-row">
       <label class="form-label">Despawn After</label>
@@ -675,15 +862,10 @@ function toggleEventMuppet(id, el) {
 // ── MAP ───────────────────────────────────────────────────────────────────────
 function initMap() {
   map = L.map('map',{zoomControl:false}).setView([38.9869,-76.9426],15)
-
-  // OpenStreetMap tiles — no file needed, pulls from the internet
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
     attribution:'© OpenStreetMap contributors'
   }).addTo(map)
-
   L.control.zoom({position:'bottomright'}).addTo(map)
-  const mapSpawnEl = document.getElementById('map-spawn-time')
-  if (mapSpawnEl && !mapSpawnEl.value) mapSpawnEl.value = formatDatetimeLocal(new Date())
   renderMapEvents()
   renderMapSpawns()
 
@@ -693,7 +875,7 @@ function initMap() {
     pendingCoords = e.latlng
     if (pendingMarker) map.removeLayer(pendingMarker)
     pendingMarker = L.marker([e.latlng.lat,e.latlng.lng],{
-      icon: L.divIcon({html:'<div style="font-size:1.8rem">📍</div>',iconSize:[28,28],className:''})
+      icon:L.divIcon({html:'<div style="font-size:1.8rem">📍</div>',iconSize:[28,28],className:''})
     }).addTo(map)
     document.getElementById('map-coords').style.display = 'block'
     document.getElementById('coords-display').textContent =
@@ -706,46 +888,51 @@ function renderMapEvents() {
   if (!map || !EVENTS.length) return
   mapEventLayers.forEach(l => map.removeLayer(l))
   mapEventLayers = []
+
   EVENTS.forEach(ev => {
+    if (ev.latitude == null || ev.longitude == null) return
     const { status } = getEventStatus(ev)
     const color = status==='active' ? '#f1c835' : status==='upcoming' ? '#35c8f1' : '#5a5e42'
+
     const eventSpawns = activeSpawns.filter(sp => sp.event_id === ev.event_id)
     const grouped = new Map()
     eventSpawns.forEach(sp => {
       const m = MUPPETS.find(x => x.collectible_id === sp.collectible_id)
-      const key = sp.collectible_id
-      if (!grouped.has(key)) {
-        grouped.set(key, {
-          emoji: m?.emoji || '🎭',
-          name: m?.muppet_name || 'Unknown',
-          rarity: m?.rarity || '',
-          spawns: 0,
-          maxCollectors: 0
+      if (!grouped.has(sp.collectible_id)) {
+        grouped.set(sp.collectible_id,{
+          image_url: m?.display_image_url || null,
+          emoji:     m?.emoji||'🎭',
+          name:      m?.muppet_name||'Unknown',
+          rarity:    m?.rarity||'',
+          count:     0
         })
       }
-      const row = grouped.get(key)
-      row.spawns += 1
-      row.maxCollectors += Number(sp.max_collectors || 1)
+      grouped.get(sp.collectible_id).count++
     })
-    const spawnRows = [...grouped.values()].map(row => `
-      <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);">
-        <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          ${row.emoji} ${row.name} <span style="color:#5a5e42">(${row.rarity})</span>
-        </div>
-        <div style="white-space:nowrap;color:#e8ead8;">x${row.spawns} · max ${row.maxCollectors}</div>
-      </div>
-    `).join('')
 
-    const markerCore = eventSpawns.length
-      ? `<div style="position:relative;width:19px;height:19px;border-radius:50%;background:${color};border:3px solid rgba(255,255,255,.35);${status==='active'?'box-shadow:0 0 10px '+color:''}display:flex;align-items:center;justify-content:center;color:#0f100c;font-size:11px;line-height:1;">${[...grouped.values()][0]?.emoji || '🎭'}</div>`
+    const spawnRows = [...grouped.values()].map(row => {
+      const thumb = row.image_url
+        ? `<img src="${escapeAttr(row.image_url)}" alt="" width="18" height="18" style="width:18px;height:18px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:6px;border:1px solid rgba(255,255,255,.2);" onerror="this.style.display='none'">`
+        : `<span style="margin-right:4px">${row.emoji}</span>`
+      return `<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.08);">
+        <span style="display:flex;align-items:center;">${thumb}<span>${row.name} <span style="color:#5a5e42">(${row.rarity})</span></span></span>
+        <span style="color:#e8ead8;">×${row.count}</span>
+      </div>`
+    }).join('')
+
+    const first = [...grouped.values()][0]
+    const firstInner = first
+      ? (first.image_url
+          ? `<img src="${escapeAttr(first.image_url)}" alt="" width="12" height="12" style="width:12px;height:12px;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='<span style=&quot;font-size:11px&quot;>${first.emoji}</span>'">`
+          : `<span style="font-size:11px">${first.emoji}</span>`)
+      : ''
+    const markerHtml = eventSpawns.length
+      ? `<div style="width:19px;height:19px;border-radius:50%;background:${color};border:3px solid rgba(255,255,255,.35);${status==='active'?'box-shadow:0 0 10px '+color:''};display:flex;align-items:center;justify-content:center;">${firstInner}</div>`
       : `<div style="width:19px;height:19px;border-radius:50%;background:${color};border:3px solid rgba(255,255,255,.35);${status==='active'?'box-shadow:0 0 10px '+color:''}"></div>`
-    const layer = L.marker([ev.latitude, ev.longitude],{
-      zIndexOffset: 700,
-      bubblingMouseEvents: false,
-      icon: L.divIcon({
-        html: markerCore,
-        iconSize:[19,19], className:''
-      })
+
+    const layer = L.marker([ev.latitude,ev.longitude],{
+      zIndexOffset:700,
+      icon:L.divIcon({html:markerHtml,iconSize:[19,19],className:''})
     }).addTo(map).bindPopup(`
       <div style="font-family:'DM Mono',monospace;font-size:12px;">
         <strong>${ev.name}</strong><br>
@@ -753,33 +940,30 @@ function renderMapEvents() {
         <span style="color:${color}">${status}</span><br>
         <span style="color:#5a5e42;font-size:11px;">${formatTime(ev.start_time)} → ${formatTime(ev.end_time)}</span>
         <div style="margin-top:8px;border-top:1px solid rgba(255,255,255,.12);padding-top:8px;">
-          <div style="font-weight:600;margin-bottom:4px;">Muppets at this event</div>
-          <div style="max-height:140px;overflow-y:auto;padding-right:4px;">
-            ${spawnRows || '<div style="color:#5a5e42;">No active event spawns</div>'}
-          </div>
+          <div style="font-weight:600;margin-bottom:4px;">Spawns at this event</div>
+          ${spawnRows || '<div style="color:#5a5e42;">None</div>'}
         </div>
       </div>
     `)
+
+    // clicking an event pin in place mode targets that event
     layer.on('click', () => {
       if (!placeMode) return
-      const mode = document.getElementById('map-placement-mode')?.value || 'collectible'
+      const mode = document.getElementById('map-placement-mode')?.value
       if (mode !== 'collectible') return
-      pendingEventPlacement = {
-        eventId: ev.event_id,
-        locationId: ev.location_id,
-        name: ev.name
-      }
-      pendingCoords = { lat: ev.latitude, lng: ev.longitude }
+      pendingEventPlacement = { eventId:ev.event_id, locationId:ev.location_id, name:ev.name }
+      pendingCoords = { lat:ev.latitude, lng:ev.longitude }
       if (pendingMarker) map.removeLayer(pendingMarker)
-      pendingMarker = L.marker([ev.latitude, ev.longitude],{
-        icon: L.divIcon({html:'<div style="font-size:1.8rem">📍</div>',iconSize:[28,28],className:''})
+      pendingMarker = L.marker([ev.latitude,ev.longitude],{
+        icon:L.divIcon({html:'<div style="font-size:1.8rem">📍</div>',iconSize:[28,28],className:''})
       }).addTo(map)
       document.getElementById('map-coords').style.display = 'block'
       document.getElementById('coords-display').textContent =
         `${ev.latitude.toFixed(5)}, ${ev.longitude.toFixed(5)}`
       document.getElementById('map-place-confirm').disabled = false
-      showToast(`Targeting event: ${ev.name}`, 'info')
+      showToast(`Targeting: ${ev.name}`, 'info')
     })
+
     mapEventLayers.push(layer)
   })
 }
@@ -788,15 +972,12 @@ function renderMapSpawns() {
   if (!map) return
   mapSpawnLayers.forEach(l => map.removeLayer(l))
   mapSpawnLayers = []
-  activeSpawns.forEach(sp => {
-    // Event-linked spawns are represented inside the event marker icon/popup.
-    if (sp.event_id) return
-    if (sp.lat == null || sp.lng == null) return
+  // only show non-event spawns as standalone emoji markers
+  activeSpawns.filter(sp => !sp.event_id && sp.lat != null && sp.lng != null).forEach(sp => {
     const m = MUPPETS.find(x => x.collectible_id === sp.collectible_id)
-    const iconSize = '1.4rem'
     const layer = L.marker([sp.lat,sp.lng],{
-      zIndexOffset: 300,
-      icon: L.divIcon({html:`<div style="font-size:${iconSize};line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))">${m?.emoji||'🎭'}</div>`,iconSize:[24,24],className:''})
+      zIndexOffset:300,
+      icon:L.divIcon({html:`<div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">${collectibleMarkerInnerHtml(m, 22)}</div>`,iconSize:[24,24],className:''})
     }).addTo(map).bindPopup(`
       <div style="font-family:'DM Mono',monospace;font-size:12px;">
         <strong>${m?.muppet_name||'Unknown'}</strong><br>
@@ -808,52 +989,19 @@ function renderMapSpawns() {
   })
 }
 
-function haversineMeters(lat1, lng1, lat2, lng2) {
-  const R = 6371000
-  const toRad = x => (x * Math.PI) / 180
-  const φ1 = toRad(lat1), φ2 = toRad(lat2)
-  const dφ = toRad(lat2 - lat1), dλ = toRad(lng2 - lng1)
-  const a =
-    Math.sin(dφ / 2) ** 2 +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(dλ / 2) ** 2
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
-
-/** Nearest event with location info for a map click. */
-function nearestEventForPoint(lat, lng) {
-  let best = null
-  let bestD = Infinity
-  for (const ev of EVENTS) {
-    if (!ev.location_id || ev.latitude == null || ev.longitude == null) continue
-    const d = haversineMeters(lat, lng, ev.latitude, ev.longitude)
-    if (d < bestD) {
-      bestD = d
-      best = {
-        eventId: ev.event_id,
-        locationId: ev.location_id,
-        distanceM: d
-      }
-    }
-  }
-  return best
-}
-
 function buildMapMuppetSelect() {
   const sel = document.getElementById('map-muppet-select')
   if (!MUPPETS.length) { sel.innerHTML='<option>No muppets loaded</option>'; return }
   sel.innerHTML = MUPPETS.map(m =>
-    `<option value="${m.collectible_id}">${m.emoji} ${m.muppet_name} (${m.rarity})</option>`
+    `<option value="${m.collectible_id}">${m.display_image_url ? '🖼 ' : m.emoji + ' '}${m.muppet_name} (${m.rarity})</option>`
   ).join('')
 }
 
 function updateMapPlacementModeUI() {
   const mode = document.getElementById('map-placement-mode')?.value || 'collectible'
-  const collectibleFields = document.getElementById('map-collectible-fields')
-  const eventFields = document.getElementById('map-event-fields')
-  const actionBtn = document.getElementById('map-place-confirm')
-  if (collectibleFields) collectibleFields.style.display = mode === 'collectible' ? '' : 'none'
-  if (eventFields) eventFields.style.display = mode === 'event' ? '' : 'none'
-  if (actionBtn) actionBtn.textContent = mode === 'event' ? 'Create Event Here' : 'Spawn Here'
+  document.getElementById('map-collectible-fields').style.display = mode==='collectible' ? '' : 'none'
+  document.getElementById('map-event-fields').style.display       = mode==='event'       ? '' : 'none'
+  document.getElementById('map-place-confirm').textContent        = mode==='event' ? 'Create Event Here' : 'Spawn Here'
 }
 
 function togglePlaceMode() {
@@ -864,7 +1012,7 @@ function togglePlaceMode() {
     btn.textContent = '✕ Cancel placement'
     map._container.style.cursor = 'crosshair'
     updateMapPlacementModeUI()
-    showToast('Click the map to place a collectible', 'info')
+    showToast('Click the map to place', 'info')
   } else {
     btn.classList.remove('active')
     btn.textContent = '+ Click map to place'
@@ -877,138 +1025,106 @@ function togglePlaceMode() {
   }
 }
 
+function haversineMeters(lat1,lng1,lat2,lng2) {
+  const R=6371000, toRad=x=>x*Math.PI/180
+  const φ1=toRad(lat1),φ2=toRad(lat2),dφ=toRad(lat2-lat1),dλ=toRad(lng2-lng1)
+  const a=Math.sin(dφ/2)**2+Math.cos(φ1)*Math.cos(φ2)*Math.sin(dλ/2)**2
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))
+}
+
+function nearestEventForPoint(lat,lng) {
+  let best=null, bestD=Infinity
+  for (const ev of EVENTS) {
+    if (!ev.location_id || ev.latitude==null || ev.longitude==null) continue
+    const d = haversineMeters(lat,lng,ev.latitude,ev.longitude)
+    if (d<bestD) { bestD=d; best={eventId:ev.event_id,locationId:ev.location_id,distanceM:d} }
+  }
+  return best
+}
+
 async function confirmMapPlace() {
   if (!pendingCoords) return
-  const collectible_id = document.getElementById('map-muppet-select')?.value || null
-  const despawn_mins   = parseInt(document.getElementById('map-despawn-select')?.value || '60', 10)
-  const muppet         = collectible_id ? MUPPETS.find(m => m.collectible_id === collectible_id) : null
-  const placementMode  = document.getElementById('map-placement-mode')?.value || 'collectible'
-  const nearestEvent   = nearestEventForPoint(pendingCoords.lat, pendingCoords.lng)
-  const associateRadiusM = 60
-  const explicitEvent = placementMode === 'collectible' && pendingEventPlacement
-  const useNearestEvent = placementMode === 'collectible' && !explicitEvent && !!nearestEvent && nearestEvent.distanceM <= associateRadiusM
-  const targetEvent = explicitEvent || (useNearestEvent ? nearestEvent : null)
-  const location_name  = `Map Point ${pendingCoords.lat.toFixed(5)}, ${pendingCoords.lng.toFixed(5)}`
-  const spawn_time = datetimeLocalToSpawnISO(document.getElementById('map-spawn-time')?.value)
+  const collectible_id  = document.getElementById('map-muppet-select')?.value || null
+  const despawn_mins    = parseInt(document.getElementById('map-despawn-select')?.value||'60',10)
+  const muppet          = collectible_id ? MUPPETS.find(m=>m.collectible_id===collectible_id) : null
+  const placementMode   = document.getElementById('map-placement-mode')?.value || 'collectible'
+  const nearestEv       = nearestEventForPoint(pendingCoords.lat, pendingCoords.lng)
+  const ASSOC_RADIUS    = 60
+  const explicitEvent   = placementMode==='collectible' && pendingEventPlacement
+  const useNearest      = placementMode==='collectible' && !explicitEvent && nearestEv && nearestEv.distanceM<=ASSOC_RADIUS
+  const targetEvent     = explicitEvent || (useNearest ? nearestEv : null)
+  const location_name   = `Map Point ${pendingCoords.lat.toFixed(5)}, ${pendingCoords.lng.toFixed(5)}`
+  const spawn_time      = datetimeLocalToISO(document.getElementById('map-spawn-time')?.value)
 
   try {
     let res
     if (placementMode === 'event') {
-      const event_name = (document.getElementById('map-event-name')?.value || '').trim() || 'Admin Placed Event'
-      const event_duration_mins = parseInt(document.getElementById('map-event-duration')?.value || '120', 10)
-      const event_category = document.getElementById('map-event-category')?.value || 'other'
+      const event_name          = (document.getElementById('map-event-name')?.value||'').trim() || 'Admin Placed Event'
+      const event_duration_mins = parseInt(document.getElementById('map-event-duration')?.value||'120',10)
+      const event_category      = document.getElementById('map-event-category')?.value || 'other'
       res = await fetch(API_SPAWNS_ADMIN_EVENT, {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
-          // Event placement always creates/uses a location at the clicked point.
-          location_id: null,
-          location_name,
-          lat: pendingCoords.lat,
-          lng: pendingCoords.lng,
-          spawn_time,
-          event_name,
-          event_duration_mins,
-          event_category,
-          organizer: 'Admin Dashboard',
-          description: 'Created from map placement'
+          location_id: null, location_name,
+          lat: pendingCoords.lat, lng: pendingCoords.lng,
+          spawn_time, event_name, event_duration_mins, event_category,
+          organizer:'Admin Dashboard', description:'Created from map placement'
         })
       })
     } else {
-      if (!collectible_id) {
-        showToast('Pick a muppet before placing.', 'error')
-        return
-      }
-      res = await fetch(`${API_SPAWNS_BASE}/admin`, {
+      if (!collectible_id) { showToast('Pick a muppet first','error'); return }
+      res = await fetch(API_SPAWNS_ADMIN, {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           collectible_id,
-          event_id: targetEvent ? targetEvent.eventId : null,
-          location_id: targetEvent ? targetEvent.locationId : null,
+          event_id:       targetEvent ? targetEvent.eventId    : null,
+          location_id:    targetEvent ? targetEvent.locationId : null,
           location_name,
-          lat: pendingCoords.lat,
-          lng: pendingCoords.lng,
-          spawn_time,
-          despawn_after: despawn_mins,
-          max_collectors: 1
+          lat: pendingCoords.lat, lng: pendingCoords.lng,
+          spawn_time, despawn_after: despawn_mins, max_collectors: 1
         })
       })
     }
     if (!res.ok) throw new Error(await res.text())
-    if (placementMode === 'event') {
-      showToast('New event created at map point', 'success')
-    } else if (explicitEvent) {
-      showToast(`${muppet.emoji} ${muppet.muppet_name} added to event`, 'success')
-    } else if (useNearestEvent) {
-      showToast(`${muppet.emoji} ${muppet.muppet_name} spawned at nearest event`, 'success')
-    } else {
-      showToast(`${muppet.emoji} ${muppet.muppet_name} spawned at custom map point`, 'success')
-    }
+
+    if (placementMode==='event')       showToast('New event created', 'success')
+    else if (explicitEvent)            showToast(`${muppet.emoji} ${muppet.muppet_name} added to event`, 'success')
+    else if (useNearest)               showToast(`${muppet.emoji} ${muppet.muppet_name} spawned at nearest event`, 'success')
+    else                               showToast(`${muppet.emoji} ${muppet.muppet_name} spawned`, 'success')
+
     togglePlaceMode()
     await loadActiveSpawns()
-    await loadEvents()
+    if (placementMode==='event') await loadEvents()
   } catch(err) {
-    showToast('Spawn failed — check server logs', 'error')
+    showToast('Failed — check server logs', 'error')
     console.error(err)
   }
 }
 
-// ── SPAWN ACTIONS ─────────────────────────────────────────────────────────────
-async function applyGeneralSpawns() {
-  if (!selectedMuppets.size) { showToast('Select at least one muppet','error'); return }
-
-  const btn = document.getElementById('main-action-btn')
-  btn.disabled = true; btn.textContent = 'Spawning...'
-
-  let spawned=0, failed=0
-
-  for (const id of selectedMuppets) {
-    const m    = MUPPETS.find(x => x.collectible_id === id)
-    const rate = parseInt(document.getElementById(`rate-${m.rarity}`)?.value||0)
-    if (rate === 0) continue
-    try {
-      const res = await fetch(`${API_SPAWNS_BASE}/random`,{
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          collectible_id: id,
-          despawn_time: new Date(Date.now()+3600000).toISOString()
-        })
-      })
-      if (!res.ok) throw new Error()
-      spawned++
-    } catch { failed++ }
-  }
-
-  btn.disabled=false; btn.textContent='▶ Apply Spawns'
-  if (spawned) showToast(`${spawned} muppet(s) spawned`,'success')
-  if (failed)  showToast(`${failed} spawn(s) failed`,'error')
-  await loadActiveSpawns()
-}
-
+// ── EVENT SPAWNS ──────────────────────────────────────────────────────────────
 async function applyEventSpawns() {
-  if (!selectedEvent)              { showToast('Select an event first','error'); return }
-  if (!selectedEventMuppets.size)  { showToast('Select at least one muppet','error'); return }
-  if (!selectedEvent.location_id)  { showToast('Selected event has no location_id — check API/join.', 'error'); return }
+  if (!selectedEvent)             { showToast('Select an event first','error'); return }
+  if (!selectedEventMuppets.size) { showToast('Select at least one muppet','error'); return }
+  if (!selectedEvent.location_id) { showToast('Event has no location_id','error'); return }
 
   const btn = document.getElementById('main-action-btn')
   btn.disabled=true; btn.textContent='Spawning...'
 
-  const despawnMins = parseInt(document.getElementById('event-despawn')?.value || '60', 10)
-  const maxCol  = parseInt(document.getElementById('event-max-collectors')?.value||1)
-  const spawn_time = datetimeLocalToSpawnISO(document.getElementById('event-spawn-time')?.value)
+  const despawnMins = parseInt(document.getElementById('event-despawn')?.value||'60',10)
+  const maxCol      = parseInt(document.getElementById('event-max-collectors')?.value||1)
+  const spawn_time  = datetimeLocalToISO(document.getElementById('event-spawn-time')?.value)
 
   let spawned=0, failed=0
 
   for (const id of selectedEventMuppets) {
     try {
-      const res = await fetch(`${API_SPAWNS_BASE}/admin`,{
+      const res = await fetch(API_SPAWNS_ADMIN, {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           collectible_id: id,
           event_id:       selectedEvent.event_id,
           location_id:    selectedEvent.location_id,
-          spawn_time,
-          despawn_after:  despawnMins,
-          max_collectors: maxCol
+          spawn_time, despawn_after:despawnMins, max_collectors:maxCol
         })
       })
       if (!res.ok) throw new Error()
@@ -1027,20 +1143,18 @@ async function applyEventSpawns() {
 function renderActiveSpawnsList() {
   const list = document.getElementById('active-spawns-list')
   if (!list) return
-
   if (!activeSpawns.length) {
     list.innerHTML = '<div class="empty-state">No active spawns</div>'
     return
   }
-
   list.innerHTML = activeSpawns.map(sp => {
-    const m = MUPPETS.find(x => x.collectible_id === sp.collectible_id)
+    const m = MUPPETS.find(x=>x.collectible_id===sp.collectible_id)
     return `
       <div class="spawn-row">
-        <span class="spawn-emoji">${m?.emoji||'🎭'}</span>
+        <div class="spawn-thumb-wrap">${m ? collectibleAvatarHtml(m, 28) : '<span class="spawn-emoji">🎭</span>'}</div>
         <div class="spawn-info">
           <div class="spawn-name">${m?.muppet_name||'Unknown'}</div>
-          <div class="spawn-meta">${sp.event_id?'Event spawn':'General spawn'} · ${formatTime(sp.spawned_at)}</div>
+          <div class="spawn-meta">${sp.event_id?'Event spawn':'Random spawn'} · ${formatTime(sp.spawned_at)}</div>
         </div>
         <span class="rarity-badge badge-${m?.rarity||'common'}">${m?.rarity||''}</span>
         <button class="spawn-kill" onclick="killSpawn('${sp.id}')" title="Expire">✕</button>
@@ -1050,16 +1164,13 @@ function renderActiveSpawnsList() {
 }
 
 async function killSpawn(spawnId) {
-  const sp  = activeSpawns.find(s => s.id === spawnId)
-  const m   = MUPPETS.find(x => x.collectible_id === sp?.collectible_id)
+  const sp = activeSpawns.find(s=>s.id===spawnId)
+  const m  = MUPPETS.find(x=>x.collectible_id===sp?.collectible_id)
   try {
-    // PUT /collectibles/spawns/<id>/expire (collectibles blueprint)
     const res = await fetch(`${API_SPAWNS_BASE}/${spawnId}/expire`,{method:'PUT'})
     if (!res.ok) throw new Error()
-  } catch {
-    // fall back to local removal if endpoint missing
-  }
-  activeSpawns = activeSpawns.filter(s => s.id !== spawnId)
+  } catch { /* fall through to local removal */ }
+  activeSpawns = activeSpawns.filter(s=>s.id!==spawnId)
   renderActiveSpawnsList()
   if (map) renderMapSpawns()
   showToast(`${m?.muppet_name||'Spawn'} expired`,'info')
@@ -1078,21 +1189,32 @@ function formatTime(iso) {
   return new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
 }
 
+function formatDatetimeLocal(d) {
+  const p=n=>String(n).padStart(2,'0')
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+function datetimeLocalToISO(localStr) {
+  if (!localStr || !String(localStr).trim()) return new Date().toISOString()
+  const t = new Date(localStr)
+  return isNaN(t.getTime()) ? new Date().toISOString() : t.toISOString()
+}
+
 function showLoading(on) {
   document.getElementById('loading-overlay').classList.toggle('hidden',!on)
 }
 
 function setConnectionStatus(ok) {
-  document.getElementById('conn-dot').className   = 'status-dot'+(ok?'':' err')
+  document.getElementById('conn-dot').className    = 'status-dot'+(ok?'':' err')
   document.getElementById('conn-label').textContent = ok ? 'Connected' : 'Disconnected'
 }
 
-function showToast(msg, type='info') {
-  const t = document.createElement('div')
-  t.className = `toast ${type}`
-  t.innerHTML = `<span>${{success:'✓',error:'✕',info:'→'}[type]}</span> ${msg}`
+function showToast(msg,type='info') {
+  const t=document.createElement('div')
+  t.className=`toast ${type}`
+  t.innerHTML=`<span>${{success:'✓',error:'✕',info:'→'}[type]}</span> ${msg}`
   document.getElementById('toast-container').appendChild(t)
-  setTimeout(()=>t.remove(), 3000)
+  setTimeout(()=>t.remove(),3000)
 }
 </script>
 </body>

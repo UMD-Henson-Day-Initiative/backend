@@ -75,6 +75,19 @@ def _api_error_payload(exc: APIError) -> dict:
     return {"message": str(exc)}
 
 
+def _coerce_bool(value, default: bool = False) -> bool:
+    """JSON booleans, 0/1, or legacy string flags → bool."""
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "yes", "on")
+    return bool(value)
+
+
 # rarity → score for collect flow (DB power_score not used here)
 RARITY_SCORES = {
     "common":    10,
@@ -312,7 +325,7 @@ def get_active_spawns():
     now = _iso_now()
     try:
         result = supabase.table("collectible_spawns") \
-            .select("*, collectibles(muppet_name, rarity), locations(latitude, longitude)") \
+            .select("*, collectibles(muppet_name, rarity, muppet_image_url), locations(latitude, longitude)") \
             .eq("spawn_status", "active") \
             .gt("despawn_time", now) \
             .execute()
@@ -464,3 +477,105 @@ def admin_spawn_with_new_event():
     event_id = str(event_rows[0]["id"])
     return jsonify({"event_id": event_id, "location_id": location_id}), 201
 
+# GET /spawns/config
+# Returns the current spawn configuration to the dashboard
+@collectibles_bp.route("/spawns/config", methods=["GET"])
+def get_spawn_config():
+    try:
+        result = (
+            supabase.table("spawn_config")
+            .select("*")
+            .order("id")
+            .limit(1)
+            .execute()
+        )
+    except APIError as e:
+        return jsonify({"error": _api_error_payload(e).get("message", "database error")}), 502
+
+    if not result.data:
+        return jsonify({"error": "no spawn config found"}), 404
+
+    return jsonify(result.data[0]), 200
+
+
+# POST /spawns/config/is-active
+# Body: {"is_active": <bool>} — updates spawn_config.is_active and updated_at
+@collectibles_bp.route("/spawns/config/is-active", methods=["POST"])
+def set_spawn_config_is_active():
+    data = request.get_json()
+    if not data or "is_active" not in data:
+        return jsonify({"error": "is_active is required (boolean)"}), 400
+
+    is_active = _coerce_bool(data.get("is_active"), False)
+    update = {
+        "is_active":  is_active,
+        "updated_at": _iso_now(),
+    }
+
+    try:
+        existing = (
+            supabase.table("spawn_config")
+            .select("id")
+            .order("id")
+            .limit(1)
+            .execute()
+        )
+        if not existing.data:
+            return jsonify({"error": "no spawn config row found — run the SQL setup first"}), 404
+
+        result = (
+            supabase.table("spawn_config")
+            .update(update)
+            .eq("id", existing.data[0]["id"])
+            .execute()
+        )
+    except APIError as e:
+        return jsonify({"error": _api_error_payload(e).get("message", "database error")}), 502
+
+    row = (result.data or [None])[0]
+    out = {"success": True, "is_active": is_active}
+    if row:
+        out["row"] = row
+    return jsonify(out), 200
+
+
+# POST /spawns/config
+# Saves spawn configuration from the dashboard
+@collectibles_bp.route("/spawns/config", methods=["POST"])
+def save_spawn_config():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "no data provided"}), 400
+
+    update = {
+        "rate_common":    int(data.get("rate_common",    6)),
+        "rate_rare":      int(data.get("rate_rare",      3)),
+        "rate_epic":      int(data.get("rate_epic",      1)),
+        "rate_legendary": int(data.get("rate_legendary", 0)),
+        "max_common":     int(data.get("max_common",    12)),
+        "max_rare":       int(data.get("max_rare",       6)),
+        "max_epic":       int(data.get("max_epic",       3)),
+        "max_legendary":  int(data.get("max_legendary",  1)),
+        "is_active":      _coerce_bool(data.get("is_active"), False),
+        "updated_at":     _iso_now(),
+    }
+
+    try:
+        existing = (
+            supabase.table("spawn_config")
+            .select("id")
+            .order("id")
+            .limit(1)
+            .execute()
+        )
+        if not existing.data:
+            return jsonify({"error": "no spawn config row found — run the SQL setup first"}), 404
+
+        result = supabase.table("spawn_config") \
+            .update(update) \
+            .eq("id", existing.data[0]["id"]) \
+            .execute()
+    except APIError as e:
+        return jsonify({"error": _api_error_payload(e).get("message", "database error")}), 502
+
+    return jsonify(result.data[0]), 200
