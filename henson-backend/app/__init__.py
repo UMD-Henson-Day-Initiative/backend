@@ -8,7 +8,7 @@ from flask import Flask
 from flask_cors import CORS
 
 from .settings import Config
-from .tasks.spawn_task import run_hourly_spawns
+from .tasks.spawn_task import expire_overdue_spawns, run_hourly_spawns
 
 
 def create_app():
@@ -41,6 +41,13 @@ def create_app():
             trigger="interval",
             hours=1,
             id="hourly_spawns",
+            replace_existing=True,
+        )
+        scheduler.add_job(
+            func=expire_overdue_spawns,
+            trigger="interval",
+            minutes=5,
+            id="expire_overdue_spawns",
             replace_existing=True,
         )
         scheduler.start()

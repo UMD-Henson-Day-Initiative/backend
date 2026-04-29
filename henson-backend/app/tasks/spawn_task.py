@@ -15,6 +15,57 @@ LAT_MIN, LAT_MAX = 38.980, 38.996
 LNG_MIN, LNG_MAX = -76.956, -76.934
 
 
+def _create_random_location_id() -> str | None:
+    """Create a location row for a random map point and return its id."""
+    lat = round(random.uniform(LAT_MIN, LAT_MAX), 6)
+    lng = round(random.uniform(LNG_MIN, LNG_MAX), 6)
+    name = f"Random Spawn {lat:.5f}, {lng:.5f}"
+    try:
+        loc_res = (
+            supabase.table("locations")
+            .insert(
+                {
+                    "name": name,
+                    "latitude": lat,
+                    "longitude": lng,
+                    "is_active": True,
+                }
+            )
+            .execute()
+        )
+    except Exception as e:
+        print(f"[spawn_task] Failed to create random location: {e}")
+        return None
+    rows = loc_res.data or []
+    if not rows or not rows[0].get("id"):
+        print("[spawn_task] Failed to create random location: missing id")
+        return None
+    return str(rows[0]["id"])
+
+
+def expire_overdue_spawns() -> None:
+    """
+    Marks timed-out active spawns as expired.
+    Run frequently (e.g. every 5 minutes) via APScheduler.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        res = (
+            supabase.table("collectible_spawns")
+            .update({"spawn_status": "expired"})
+            .eq("spawn_status", "active")
+            .lte("despawn_time", now)
+            .execute()
+        )
+    except Exception as e:
+        print(f"[spawn_task] Failed to expire overdue spawns: {e}")
+        return
+
+    expired_count = len(res.data or [])
+    if expired_count:
+        print(f"[spawn_task] Expired {expired_count} overdue spawns at {now}")
+
+
 def run_hourly_spawns():
     """
     Called every hour by APScheduler.
@@ -81,14 +132,14 @@ def run_hourly_spawns():
         # fetch all collectibles of this rarity to pick from
         try:
             pool_res = supabase.table("collectibles") \
-                .select("collectible_id") \
+                .select("id") \
                 .eq("rarity", rarity) \
                 .execute()
         except Exception as e:
             print(f"[spawn_task] {rarity}: failed to load pool — {e}")
             continue
 
-        pool = [m["collectible_id"] for m in (pool_res.data or [])]
+        pool = [m["id"] for m in (pool_res.data or []) if m.get("id")]
         if not pool:
             print(f"[spawn_task] {rarity}: no collectibles in DB — skipping")
             continue
@@ -97,19 +148,19 @@ def run_hourly_spawns():
 
         for _ in range(to_create):
             collectible_id = random.choice(pool)
-            lat  = round(random.uniform(LAT_MIN, LAT_MAX), 6)
-            lng  = round(random.uniform(LNG_MIN, LNG_MAX), 6)
             despawn_time = (now + timedelta(minutes=despawn_minutes)).isoformat()
+            location_id = _create_random_location_id()
+            if not location_id:
+                continue
 
             try:
                 supabase.table("collectible_spawns").insert({
                     "collectible_id": collectible_id,
+                    "location_id":    location_id,
                     "spawn_status":   "active",
                     "spawn_mode":     "random",
                     "spawn_time":     now.isoformat(),
                     "despawn_time":   despawn_time,
-                    "lat":            lat,
-                    "lng":            lng,
                     "max_collectors": 1,
                 }).execute()
                 spawns_created += 1
