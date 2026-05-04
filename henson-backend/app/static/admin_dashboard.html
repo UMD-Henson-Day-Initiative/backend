@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,700;0,900;1,300&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
   --bg:#0e0f0c;--panel:#15160f;--border:#2a2c1f;--accent:#c8f135;
@@ -16,7 +17,13 @@
   --legendary:#f59e0b;--danger:#ef4444;--success:#22c55e;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;display:flex;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;margin:0;overflow:hidden;}
+#login-gate{position:fixed;inset:0;z-index:10000;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px;}
+.login-card{max-width:400px;width:100%;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:28px;}
+.login-hint{font-size:.6rem;color:var(--muted);line-height:1.45;margin-bottom:10px;}
+.login-hint code{font-size:.55rem;background:rgba(0,0,0,.28);padding:2px 6px;border-radius:4px;color:var(--text2);}
+.login-err{color:var(--danger);font-size:.65rem;margin-top:10px;min-height:1.2em;}
+#app-shell{display:none;flex-direction:row;min-height:100vh;width:100%;}
 
 /* ── SIDEBAR ── */
 .sidebar{width:220px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:24px 0;z-index:10;}
@@ -204,6 +211,21 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 </style>
 </head>
 <body>
+<div id="login-gate">
+  <div class="login-card">
+    <div class="logo-title" style="margin-bottom:6px;">Admin sign-in</div>
+    <p class="login-hint">Supabase user must have <code>raw_app_meta_data.admin = true</code> (see Supabase SQL below) or an email in server env <code>ADMIN_EMAILS</code>.</p>
+    <label class="form-label">Email</label>
+    <input type="email" id="login-email" class="form-input" autocomplete="username" placeholder="you@example.com"/>
+    <label class="form-label" style="margin-top:12px;display:block;">Password</label>
+    <input type="password" id="login-password" class="form-input" autocomplete="current-password"/>
+    <div id="login-error" class="login-err"></div>
+    <button type="button" class="btn btn-primary" id="login-submit" style="width:100%;margin-top:14px;">Sign in</button>
+    <p id="login-config-hint" class="login-hint" style="margin-top:14px;margin-bottom:0;"></p>
+  </div>
+</div>
+
+<div id="app-shell" style="display:none;flex-direction:row;min-height:100vh;width:100%;">
 
 <!-- LOADING -->
 <div class="loading-overlay" id="loading-overlay">
@@ -227,6 +249,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
   <div class="sidebar-footer">
     <span class="status-dot" id="conn-dot"></span>
     <span id="conn-label">Connecting...</span>
+    <button type="button" class="btn btn-ghost" id="logout-btn" style="width:100%;margin-top:10px;font-size:.6rem;display:none;" onclick="signOutAdmin()">Sign out</button>
   </div>
 </aside>
 
@@ -432,12 +455,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
   </div>
 </main>
 
+</div>
+
 <div class="toast-container" id="toast-container"></div>
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────────
-// Must match app/__init__.py (autoapp.py): blueprint url_prefix + @route paths.
-const BASE_URL = 'http://127.0.0.1:5000'
+// Page is served by Flask (same origin). API paths: /collectibles/..., /events/...
+// If the API ever lives on another host, set BASE_URL to that origin (https://...).
+const BASE_URL = window.location.origin
 const BP_COLLECTIBLES = `${BASE_URL}/collectibles`  // collectibles_bp
 const BP_EVENTS       = `${BASE_URL}/events`        // events_bp
 
@@ -515,16 +541,110 @@ let mapSpawnLayers = [], mapEventLayers = [], currentTab = 'general'
 /** When true, spawn-active-toggle `change` must not POST (programmatic sync from server). */
 let spawnActiveToggleSyncing = false
 
-// ── BOOT ──────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', async () => {
+/** Supabase client (set after /admin/bootstrap). */
+let sb = null
+/** True when server has SUPABASE_JWT_SECRET (spawn routes require JWT). */
+let __adminAuthRequired = false
+
+/** Attach Supabase access token for protected spawn APIs (no-op if logged out). */
+async function authFetch(url, opts = {}) {
+  const headers = { ...(opts.headers || {}) }
+  if (sb) {
+    const { data: { session } } = await sb.auth.getSession()
+    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
+  }
+  return fetch(url, { ...opts, headers })
+}
+
+function revealAppShell() {
+  document.getElementById('login-gate').style.display = 'none'
+  document.getElementById('app-shell').style.display = 'flex'
+  const lb = document.getElementById('logout-btn')
+  if (lb) lb.style.display = __adminAuthRequired ? 'block' : 'none'
+}
+
+async function initAdminAuth() {
+  const hintEl = document.getElementById('login-config-hint')
+  const res = await fetch('/admin/bootstrap')
+  const cfg = await res.json().catch(() => ({}))
+  __adminAuthRequired = !!cfg.auth_required
+
+  if (!cfg.auth_required) {
+    revealAppShell()
+    return true
+  }
+
+  if (!cfg.supabase_url || !cfg.supabase_anon_key) {
+    if (hintEl) {
+      hintEl.innerHTML = 'Set <code>SUPABASE_URL</code>, <code>SUPABASE_ANON_KEY</code>, and <code>SUPABASE_JWT_SECRET</code> in <code>.env</code>, then restart Flask.'
+    }
+    return false
+  }
+  if (typeof supabase === 'undefined' || !supabase.createClient) {
+    if (hintEl) hintEl.textContent = 'Could not load @supabase/supabase-js (check network / CDN).'
+    return false
+  }
+
+  sb = supabase.createClient(cfg.supabase_url, cfg.supabase_anon_key, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      storage: window.localStorage,
+      storageKey: 'henson-admin-sb-auth',
+    },
+  })
+
+  const { data: { session } } = await sb.auth.getSession()
+  if (session) {
+    revealAppShell()
+    return true
+  }
+  return false
+}
+
+async function submitAdminLogin() {
+  const errEl = document.getElementById('login-error')
+  errEl.textContent = ''
+  const email = document.getElementById('login-email')?.value?.trim()
+  const password = document.getElementById('login-password')?.value || ''
+  if (!email || !password) {
+    errEl.textContent = 'Enter email and password.'
+    return
+  }
+  const { error } = await sb.auth.signInWithPassword({ email, password })
+  if (error) {
+    errEl.textContent = error.message
+    return
+  }
+  revealAppShell()
+  await startMainDashboard()
+}
+
+async function signOutAdmin() {
+  if (sb) await sb.auth.signOut()
+  if (__adminAuthRequired) {
+    document.getElementById('app-shell').style.display = 'none'
+    document.getElementById('login-gate').style.display = 'flex'
+    document.getElementById('login-password').value = ''
+  }
+}
+
+async function startMainDashboard() {
   const mapSpawnEl = document.getElementById('map-spawn-time')
   if (mapSpawnEl) mapSpawnEl.value = formatDatetimeLocal(new Date())
   await loadAllData()
   document.querySelectorAll('input[type=range]').forEach(updateSliderFill)
   updateRateSummary()
-
   const spawnToggle = document.getElementById('spawn-active-toggle')
   if (spawnToggle) spawnToggle.addEventListener('change', onRandomSpawnToggleChange)
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('login-submit')?.addEventListener('click', submitAdminLogin)
+  const ready = await initAdminAuth()
+  if (!ready) return
+  await startMainDashboard()
 })
 
 // ── DATA LOADING ──────────────────────────────────────────────────────────────
@@ -583,7 +703,7 @@ async function loadEvents() {
 }
 
 async function loadActiveSpawns() {
-  const res = await fetch(API_SPAWNS_ACTIVE)
+  const res = await authFetch(API_SPAWNS_ACTIVE)
   if (!res.ok) {
     activeSpawns = []
     renderActiveSpawnsList()
@@ -612,7 +732,7 @@ async function loadActiveSpawns() {
 // ── SPAWN CONFIG ──────────────────────────────────────────────────────────────
 async function loadSpawnConfig() {
   try {
-    const res = await fetch(API_SPAWNS_CONFIG)
+    const res = await authFetch(API_SPAWNS_CONFIG)
     if (!res.ok) return
     const data = await res.json()
 
@@ -656,7 +776,7 @@ async function onRandomSpawnToggleChange(ev) {
   const want = Boolean(el.checked)
 
   try {
-    const res = await fetch(API_SPAWNS_CONFIG_ACTIVE, {
+    const res = await authFetch(API_SPAWNS_CONFIG_ACTIVE, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ is_active: want })
@@ -693,7 +813,7 @@ async function saveSpawnConfig() {
   config.is_active = Boolean(toggle && toggle.checked)
 
   try {
-    const res = await fetch(API_SPAWNS_CONFIG, {
+    const res = await authFetch(API_SPAWNS_CONFIG, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(config)
@@ -1062,7 +1182,7 @@ async function confirmMapPlace() {
       const event_name          = (document.getElementById('map-event-name')?.value||'').trim() || 'Admin Placed Event'
       const event_duration_mins = parseInt(document.getElementById('map-event-duration')?.value||'120',10)
       const event_category      = document.getElementById('map-event-category')?.value || 'other'
-      res = await fetch(API_SPAWNS_ADMIN_EVENT, {
+      res = await authFetch(API_SPAWNS_ADMIN_EVENT, {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           location_id: null, location_name,
@@ -1073,7 +1193,7 @@ async function confirmMapPlace() {
       })
     } else {
       if (!collectible_id) { showToast('Pick a muppet first','error'); return }
-      res = await fetch(API_SPAWNS_ADMIN, {
+      res = await authFetch(API_SPAWNS_ADMIN, {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           collectible_id,
@@ -1118,7 +1238,7 @@ async function applyEventSpawns() {
 
   for (const id of selectedEventMuppets) {
     try {
-      const res = await fetch(API_SPAWNS_ADMIN, {
+      const res = await authFetch(API_SPAWNS_ADMIN, {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           collectible_id: id,
@@ -1167,7 +1287,7 @@ async function killSpawn(spawnId) {
   const sp = activeSpawns.find(s=>s.id===spawnId)
   const m  = MUPPETS.find(x=>x.collectible_id===sp?.collectible_id)
   try {
-    const res = await fetch(`${API_SPAWNS_BASE}/${spawnId}/expire`,{method:'PUT'})
+    const res = await authFetch(`${API_SPAWNS_BASE}/${spawnId}/expire`,{method:'PUT'})
     if (!res.ok) throw new Error()
   } catch { /* fall through to local removal */ }
   activeSpawns = activeSpawns.filter(s=>s.id!==spawnId)

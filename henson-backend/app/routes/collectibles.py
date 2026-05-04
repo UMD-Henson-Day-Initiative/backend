@@ -5,6 +5,7 @@ from uuid import UUID
 from flask import Blueprint, request, jsonify
 from postgrest.exceptions import APIError
 
+from app.auth_supabase import require_supabase_jwt
 from app.database import supabase
 from math import radians, sin, cos, sqrt, atan2
 
@@ -321,6 +322,7 @@ def get_leaderboard():
 # Called on dashboard load to populate the active spawns
 # list and place emoji markers on the map
 @collectibles_bp.route("/spawns/active", methods=["GET"])
+@require_supabase_jwt
 def get_active_spawns():
     now = _iso_now()
     try:
@@ -349,6 +351,7 @@ def get_active_spawns():
 # Called when admin clicks the ✕ button next to
 # a spawn in the active spawns list
 @collectibles_bp.route("/spawns/<id>/expire", methods=["PUT"])
+@require_supabase_jwt
 def expire_spawn(id):
     try:
         _parse_uuid(id, "id")
@@ -368,6 +371,7 @@ def expire_spawn(id):
 
 # POST /spawns/random
 @collectibles_bp.route("/spawns/random", methods=["POST"])
+@require_supabase_jwt
 def create_random_spawn():
     data = request.get_json()
     if not data or not data.get("collectible_id") or not data.get("despawn_time"):
@@ -395,6 +399,7 @@ def create_random_spawn():
 
 # POST /spawns/admin
 @collectibles_bp.route("/spawns/admin", methods=["POST"])
+@require_supabase_jwt
 def admin_spawn_collectible():
     data = request.get_json()
     if not data or not data.get("collectible_id"):
@@ -432,6 +437,7 @@ def admin_spawn_collectible():
 # POST /spawns/admin-event
 # Create a location-backed event from map click.
 @collectibles_bp.route("/spawns/admin-event", methods=["POST"])
+@require_supabase_jwt
 def admin_spawn_with_new_event():
     data = request.get_json()
     if not data:
@@ -480,6 +486,7 @@ def admin_spawn_with_new_event():
 # GET /spawns/config
 # Returns the current spawn configuration to the dashboard
 @collectibles_bp.route("/spawns/config", methods=["GET"])
+@require_supabase_jwt
 def get_spawn_config():
     try:
         result = (
@@ -501,6 +508,7 @@ def get_spawn_config():
 # POST /spawns/config/is-active
 # Body: {"is_active": <bool>} — updates spawn_config.is_active and updated_at
 @collectibles_bp.route("/spawns/config/is-active", methods=["POST"])
+@require_supabase_jwt
 def set_spawn_config_is_active():
     data = request.get_json()
     if not data or "is_active" not in data:
@@ -542,6 +550,7 @@ def set_spawn_config_is_active():
 # POST /spawns/config
 # Saves spawn configuration from the dashboard
 @collectibles_bp.route("/spawns/config", methods=["POST"])
+@require_supabase_jwt
 def save_spawn_config():
     data = request.get_json()
     if not data:
