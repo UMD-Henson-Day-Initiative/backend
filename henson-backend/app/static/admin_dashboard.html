@@ -130,7 +130,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 .event-dot.active{background:var(--success);box-shadow:0 0 6px var(--success);}
 .event-dot.upcoming{background:var(--accent3);}
 .event-dot.past{background:var(--muted);}
-.event-name{font-size:.75rem;color:var(--text);flex:1;}
+.event-organizer{font-size:.75rem;color:var(--text);flex:1;}
 .event-time{font-size:.62rem;color:var(--muted);}
 .event-loc{font-size:.62rem;color:var(--text2);}
 .spawn-panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:20px;}
@@ -243,7 +243,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
   </div>
   <nav class="nav">
     <div class="nav-item active" onclick="switchTab('general',this)"><span class="nav-icon">🎲</span> General Spawns</div>
-    <div class="nav-item" onclick="switchTab('events',this)"><span class="nav-icon">📅</span> Event Spawns</div>
+    <div class="nav-item" id="nav-tab-events" onclick="switchTab('events',this)"><span class="nav-icon">📅</span> Event Spawns</div>
     <div class="nav-item" onclick="switchTab('map',this)"><span class="nav-icon">🗺️</span> Map View</div>
   </nav>
   <div class="sidebar-footer">
@@ -411,8 +411,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
           <!-- Event fields -->
           <div id="map-event-fields" style="display:none;">
             <div class="form-row">
-              <label class="form-label">Event name</label>
-              <input class="place-select" id="map-event-name" placeholder="Admin Placed Event"/>
+              <label class="form-label">Organizer</label>
+              <input class="place-select" id="map-event-organizer" placeholder="Host or organization"/>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Location name <span style="color:var(--accent2)">*</span></label>
+              <input class="place-select" id="map-event-location-name" required placeholder="Venue or building name" autocomplete="off"/>
             </div>
             <div class="form-row">
               <label class="form-label">Duration</label>
@@ -691,7 +695,7 @@ async function loadEvents() {
     return {
       event_id:      e.event_id ?? e.id,
       location_id:   loc.id ?? e.location_id ?? null,
-      name:          e.name,
+      organizer:     (e.organizer != null && String(e.organizer).trim()) ? String(e.organizer).trim() : '',
       location_name: e.location_name ?? loc.name ?? '',
       latitude:      e.latitude  ?? loc.latitude,
       longitude:     e.longitude ?? loc.longitude,
@@ -700,6 +704,7 @@ async function loadEvents() {
     }
   })
   buildEventList()
+  if (map) renderMapEvents()
 }
 
 async function loadActiveSpawns() {
@@ -904,10 +909,10 @@ function buildEventList() {
   list.innerHTML = EVENTS.map(ev => {
     const { status, label } = getEventStatus(ev)
     return `
-      <div class="event-row" onclick="selectEvent('${ev.event_id}',this)">
+      <div class="event-row" data-event-id="${ev.event_id}" onclick="selectEvent('${ev.event_id}',this)">
         <span class="event-dot ${status}"></span>
         <div style="flex:1;">
-          <div class="event-name">${ev.name}</div>
+          <div class="event-organizer">${eventOrganizerLabel(ev)}</div>
           <div class="event-loc">${ev.location_name||''}</div>
         </div>
         <div class="event-time">${label}</div>
@@ -924,13 +929,19 @@ function selectEvent(id, el) {
   buildEventSpawnPanel()
 }
 
+function selectEventById(id) {
+  if (!id) return
+  const el = document.querySelector(`.event-row[data-event-id="${id}"]`)
+  if (el) selectEvent(id, el)
+}
+
 function buildEventSpawnPanel() {
   if (!selectedEvent) return
   const { status } = getEventStatus(selectedEvent)
   const spawnDefault = formatDatetimeLocal(new Date())
   document.getElementById('event-spawn-panel').innerHTML = `
     <div class="spawn-panel-title">
-      📅 ${selectedEvent.name}
+      📅 ${eventOrganizerLabel(selectedEvent)}
       <span class="rarity-badge badge-${status==='active'?'rare':'common'}">${status}</span>
     </div>
     <div style="font-size:.65rem;color:var(--muted);margin-bottom:16px;">
@@ -1055,7 +1066,7 @@ function renderMapEvents() {
       icon:L.divIcon({html:markerHtml,iconSize:[19,19],className:''})
     }).addTo(map).bindPopup(`
       <div style="font-family:'DM Mono',monospace;font-size:12px;">
-        <strong>${ev.name}</strong><br>
+        <strong>${eventOrganizerLabel(ev)}</strong><br>
         <span style="color:#5a5e42">${ev.location_name||''}</span><br>
         <span style="color:${color}">${status}</span><br>
         <span style="color:#5a5e42;font-size:11px;">${formatTime(ev.start_time)} → ${formatTime(ev.end_time)}</span>
@@ -1071,7 +1082,7 @@ function renderMapEvents() {
       if (!placeMode) return
       const mode = document.getElementById('map-placement-mode')?.value
       if (mode !== 'collectible') return
-      pendingEventPlacement = { eventId:ev.event_id, locationId:ev.location_id, name:ev.name }
+      pendingEventPlacement = { eventId:ev.event_id, locationId:ev.location_id, organizer:ev.organizer }
       pendingCoords = { lat:ev.latitude, lng:ev.longitude }
       if (pendingMarker) map.removeLayer(pendingMarker)
       pendingMarker = L.marker([ev.latitude,ev.longitude],{
@@ -1081,7 +1092,7 @@ function renderMapEvents() {
       document.getElementById('coords-display').textContent =
         `${ev.latitude.toFixed(5)}, ${ev.longitude.toFixed(5)}`
       document.getElementById('map-place-confirm').disabled = false
-      showToast(`Targeting: ${ev.name}`, 'info')
+      showToast(`Targeting: ${eventOrganizerLabel(ev)}`, 'info')
     })
 
     mapEventLayers.push(layer)
@@ -1179,16 +1190,22 @@ async function confirmMapPlace() {
   try {
     let res
     if (placementMode === 'event') {
-      const event_name          = (document.getElementById('map-event-name')?.value||'').trim() || 'Admin Placed Event'
+      const event_location_name = (document.getElementById('map-event-location-name')?.value||'').trim()
+      if (!event_location_name) {
+        showToast('Location name is required', 'error')
+        return
+      }
+      const organizer           = (document.getElementById('map-event-organizer')?.value||'').trim() || 'Admin Dashboard'
       const event_duration_mins = parseInt(document.getElementById('map-event-duration')?.value||'120',10)
       const event_category      = document.getElementById('map-event-category')?.value || 'other'
       res = await authFetch(API_SPAWNS_ADMIN_EVENT, {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
-          location_id: null, location_name,
+          location_id: null,
+          location_name: event_location_name,
           lat: pendingCoords.lat, lng: pendingCoords.lng,
-          spawn_time, event_name, event_duration_mins, event_category,
-          organizer:'Admin Dashboard', description:'Created from map placement'
+          spawn_time, event_duration_mins, event_category,
+          organizer, description:'Created from map placement'
         })
       })
     } else {
@@ -1205,7 +1222,16 @@ async function confirmMapPlace() {
         })
       })
     }
-    if (!res.ok) throw new Error(await res.text())
+    const resBodyText = await res.text()
+    if (!res.ok) throw new Error(resBodyText)
+
+    let newEventId = null
+    if (placementMode === 'event') {
+      try {
+        const body = JSON.parse(resBodyText)
+        if (body.event_id) newEventId = String(body.event_id)
+      } catch (_) { /* ignore */ }
+    }
 
     if (placementMode==='event')       showToast('New event created', 'success')
     else if (explicitEvent)            showToast(`${muppet.emoji} ${muppet.muppet_name} added to event`, 'success')
@@ -1214,7 +1240,12 @@ async function confirmMapPlace() {
 
     togglePlaceMode()
     await loadActiveSpawns()
-    if (placementMode==='event') await loadEvents()
+    if (placementMode === 'event') {
+      await loadEvents()
+      const navEv = document.getElementById('nav-tab-events')
+      if (navEv) switchTab('events', navEv)
+      if (newEventId) selectEventById(newEventId)
+    }
   } catch(err) {
     showToast('Failed — check server logs', 'error')
     console.error(err)
@@ -1253,7 +1284,7 @@ async function applyEventSpawns() {
   }
 
   btn.disabled=false; btn.textContent='▶ Spawn for Event'
-  if (spawned) showToast(`${spawned} muppet(s) spawned at ${selectedEvent.name}`,'success')
+  if (spawned) showToast(`${spawned} muppet(s) spawned at ${eventOrganizerLabel(selectedEvent)}`,'success')
   if (failed)  showToast(`${failed} spawn(s) failed`,'error')
   await loadActiveSpawns()
   if (map) renderMapSpawns()
@@ -1297,6 +1328,11 @@ async function killSpawn(spawnId) {
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
+function eventOrganizerLabel(ev) {
+  const o = ev && ev.organizer != null ? String(ev.organizer).trim() : ''
+  return o || '—'
+}
+
 function getEventStatus(ev) {
   const now=Date.now(), start=new Date(ev.start_time).getTime(), end=new Date(ev.end_time).getTime()
   if (now>end)    return {status:'past',    label:'Past'}

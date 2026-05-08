@@ -443,6 +443,10 @@ def admin_spawn_with_new_event():
     if not data:
         return jsonify({"error": "request body is required"}), 400
 
+    if not (str(data.get("location_id") or "").strip()):
+        if not (data.get("location_name") or "").strip():
+            return jsonify({"error": "location_name is required"}), 400
+
     try:
         location_id = _resolve_or_create_location_id(data)
         event_start = _parse_spawn_time_to_utc(data)
@@ -450,9 +454,26 @@ def admin_spawn_with_new_event():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
+    # events.location_name is NOT NULL in many schemas (denormalized venue label)
+    event_location_name = (data.get("location_name") or "").strip()
+    if not event_location_name:
+        try:
+            loc_row = (
+                supabase.table("locations")
+                .select("name")
+                .eq("id", location_id)
+                .limit(1)
+                .execute()
+            )
+        except APIError as e:
+            return jsonify({"error": _api_error_payload(e).get("message", "failed to load location")}), 502
+        loc_data = (loc_row.data or [{}])[0]
+        event_location_name = (loc_data.get("name") or "").strip()
+    if not event_location_name:
+        return jsonify({"error": "location_name is required"}), 400
+
     from datetime import timedelta
     event_end = event_start + timedelta(minutes=event_duration_mins)
-    event_name = (data.get("event_name") or "").strip() or "Admin Placed Event"
     event_category = (data.get("event_category") or "").strip() or "other"
     organizer = (data.get("organizer") or "").strip() or "Admin Dashboard"
     description = (data.get("description") or "").strip() or "Created from admin map placement"
@@ -462,8 +483,8 @@ def admin_spawn_with_new_event():
             supabase.table("events")
             .insert(
                 {
-                    "name": event_name,
                     "location_id": location_id,
+                    "location_name": event_location_name,
                     "start_time": event_start.isoformat(),
                     "end_time": event_end.isoformat(),
                     "category": event_category,
