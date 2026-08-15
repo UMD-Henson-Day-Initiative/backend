@@ -1,173 +1,155 @@
-# henson-backend
+# Henson Day Backend (Flask + Supabase)
 
+Backend API for the Henson Day campus scavenger hunt at the University of Maryland.
+Users sign in with a UMD Google account, browse the event schedule and map,
+walk to an event's location to collect its coin (points), and compete on a
+leaderboard.
 
+---
 
-## Docker Quickstart
+## Tech Stack
 
-This app can be run completely using `Docker` and `docker compose`. **Using Docker is recommended, as it guarantees the application is run using compatible versions of Python and Node**.
+* **Backend Framework:** Flask
+* **Database + Auth:** Supabase (PostgreSQL + Supabase Auth, Google provider)
+* **Language:** Python 3.11+
 
-There are three main services:
+---
 
-To run the development version of the app
+## Authentication
+
+Sign-in is Google-only, restricted to `@umd.edu` / `@terpmail.umd.edu` accounts,
+and happens entirely client-side — this backend never touches a Google
+credential directly:
+
+1. The iOS app signs in with Google and calls Supabase's
+   `signInWithIdToken(credentials: .init(provider: .google, idToken: ...))`.
+2. Supabase Auth creates/looks up the `auth.users` row and returns a session
+   JWT (`access_token`).
+3. The iOS app sends that token as `Authorization: Bearer <access_token>` on
+   every request to this API.
+4. `app/auth.py` verifies the JWT against Supabase's JWKS endpoint (derived
+   from `SUPABASE_URL` — no separate secret needed) and rejects any request
+   whose email isn't a UMD address, even if Supabase considers the session
+   valid.
+5. The first call to `GET /me` after signing in creates the matching
+   `profiles` row (see `supabase/schema.sql`); every call after that just
+   returns it.
+
+Signing out is a client-side call to Supabase's `signOut()` — there's no
+backend route for it.
+
+### Required setup (Supabase dashboard)
+
+* Enable the **Google** provider under Authentication → Providers.
+* Run `supabase/schema.sql` in the SQL editor to create `profiles`, `events`,
+  and `event_collections`.
+
+---
+
+## API
+
+All routes below require `Authorization: Bearer <supabase_access_token>`.
+
+### `GET /me`
+
+Returns (creating on first call) the signed-in user's profile:
+
+```json
+{
+  "id": "...",
+  "email": "testudo@umd.edu",
+  "first_name": "Testudo",
+  "last_name": "Terrapin",
+  "total_points": 40,
+  "events_attended": 2
+}
+```
+
+### `GET /events`
+
+Full schedule, ordered by start time. Add `?date=YYYY-MM-DD` to scope to one
+day (used by the map screen). Each event includes whether the caller has
+already collected its coin:
+
+```json
+[
+  {
+    "id": "...",
+    "title": "McKeldin Time Capsule Hunt",
+    "description": "...",
+    "location_name": "McKeldin Mall",
+    "latitude": 38.9869,
+    "longitude": -76.9426,
+    "start_time": "2026-09-14T18:30:00+00:00",
+    "end_time": "2026-09-14T20:00:00+00:00",
+    "points": 25,
+    "collected": false
+  }
+]
+```
+
+### `GET /events/<event_id>`
+
+Same shape as one item above — used for the map pin detail view.
+
+### `POST /events/<event_id>/collect`
+
+Collects the event's coin. Body: `{"lat": 38.9869, "lng": -76.9426}`.
+
+Validated server-side:
+
+* the caller must be within **0.1 mile (≈160.9 m)** of the event's location
+* the same event's coin can only be collected once per user
+
+Responses:
+
+* `201` — `{"success": true, "points_awarded": 25, "distance_meters": 42.1, "total_points": 65, "events_attended": 3}`
+* `403` — `{"error": "too far away", "distance_meters": 512.3}`
+* `409` — `{"error": "already collected"}`
+
+### `GET /leaderboard`
+
+Top 10 players by total points:
+
+```json
+[
+  {"rank": 1, "user_id": "...", "first_name": "Testudo", "last_name": "Terrapin", "total_points": 240, "events_attended": 9}
+]
+```
+
+---
+
+## Local Development
 
 ```bash
-docker compose up flask-dev
+cp .env.example .env   # fill in SUPABASE_URL and SUPABASE_KEY (secret key)
+pip install -r requirements.txt
+python3 -m flask run
 ```
 
-To run the production version of the app
+Server starts at `http://127.0.0.1:5000`.
 
 ```bash
-docker compose up flask-prod
+curl http://127.0.0.1:5000/events -H "Authorization: Bearer <token>"
 ```
 
-The list of `environment:` variables in the `docker compose.yml` file takes precedence over any variables specified in `.env`.
+---
 
-To run any commands using the `Flask CLI`
+## Project Structure
 
-```bash
-docker compose run --rm manage <<COMMAND>>
 ```
-
-Therefore, to initialize a database you would run
-
-```bash
-docker compose run --rm manage db init
-docker compose run --rm manage db migrate
-docker compose run --rm manage db upgrade
-```
-
-A docker volume `node-modules` is created to store NPM packages and is reused across the dev and prod versions of the application. For the purposes of DB testing with `sqlite`, the file `dev.db` is mounted to all containers. This volume mount should be removed from `docker compose.yml` if a production DB server is used.
-
-Go to `http://localhost:8080`. You will see a pretty welcome screen.
-
-### Running locally
-
-Run the following commands to bootstrap your environment if you are unable to run the application using Docker
-
-```bash
-cd app
-pip install -r requirements/dev.txt
-npm install
-npm run-script build
-npm start  # run the webpack dev server and flask server using concurrently
-```
-
-Go to `http://localhost:5000`. You will see a pretty welcome screen.
-
-#### Database Initialization (locally)
-
-Once you have installed your DBMS, run the following to create your app's
-database tables and perform the initial migration
-
-```bash
-flask db init
-flask db migrate
-flask db upgrade
-```
-
-## Deployment
-
-When using Docker, reasonable production defaults are set in `docker compose.yml`
-
-```text
-FLASK_ENV=production
-FLASK_DEBUG=0
-```
-
-Therefore, starting the app in "production" mode is as simple as
-
-```bash
-docker compose up flask-prod
-```
-
-If running without Docker
-
-```bash
-export FLASK_ENV=production
-export FLASK_DEBUG=0
-export DATABASE_URL="<YOUR DATABASE URL>"
-npm run build   # build assets with webpack
-flask run       # start the flask server
-```
-
-## Shell
-
-To open the interactive shell, run
-
-```bash
-docker compose run --rm manage shell
-flask shell # If running locally without Docker
-```
-
-By default, you will have access to the flask `app`.
-
-## Running Tests/Linter
-
-To run all tests, run
-
-```bash
-docker compose run --rm manage test
-flask test # If running locally without Docker
-```
-
-To run the linter, run
-
-```bash
-docker compose run --rm manage lint
-flask lint # If running locally without Docker
-```
-
-The `lint` command will attempt to fix any linting/style errors in the code. If you only want to know if the code will pass CI and do not wish for the linter to make changes, add the `--check` argument.
-
-## Migrations
-
-Whenever a database migration needs to be made. Run the following commands
-
-```bash
-docker compose run --rm manage db migrate
-flask db migrate # If running locally without Docker
-```
-
-This will generate a new migration script. Then run
-
-```bash
-docker compose run --rm manage db upgrade
-flask db upgrade # If running locally without Docker
-```
-
-To apply the migration.
-
-For a full migration command reference, run `docker compose run --rm manage db --help`.
-
-If you will deploy your application remotely (e.g on Heroku) you should add the `migrations` folder to version control.
-You can do this after `flask db migrate` by running the following commands
-
-```bash
-git add migrations/*
-git commit -m "Add migrations"
-```
-
-Make sure folder `migrations/versions` is not empty.
-
-## Asset Management
-
-Files placed inside the `assets` directory and its subdirectories
-(excluding `js` and `css`) will be copied by webpack's
-`file-loader` into the `static/build` directory. In production, the plugin
-`Flask-Static-Digest` zips the webpack content and tags them with a MD5 hash.
-As a result, you must use the `static_url_for` function when including static content,
-as it resolves the correct file name, including the MD5 hash.
-For example
-
-```html
-<link rel="shortcut icon" href="{{static_url_for('static', filename='build/favicon.ico') }}">
-```
-
-If all of your static files are managed this way, then their filenames will change whenever their
-contents do, and you can ask Flask to tell web browsers that they
-should cache all your assets forever by including the following line
-in ``.env``:
-
-```text
-SEND_FILE_MAX_AGE_DEFAULT=31556926  # one year
+henson-backend/
+├── app/
+│   ├── auth.py           # Supabase JWT verification + UMD domain check
+│   ├── database.py       # Supabase client
+│   ├── settings.py       # Config from environment variables
+│   ├── utils.py          # Shared helpers (haversine distance, error formatting)
+│   └── routes/
+│       ├── users.py       # GET /me
+│       ├── events.py      # GET /events, GET /events/<id>, POST /events/<id>/collect
+│       └── leaderboard.py # GET /leaderboard
+├── supabase/
+│   └── schema.sql        # profiles, events, event_collections + RLS
+├── autoapp.py            # Entry point
+└── .env.example
 ```

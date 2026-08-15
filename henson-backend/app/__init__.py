@@ -1,14 +1,14 @@
 
 """Main application package."""
-import atexit
-import os
+import logging
 
-from apscheduler.schedulers.background import BackgroundScheduler
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
+from werkzeug.exceptions import HTTPException
 
 from .settings import Config
-from .tasks.spawn_task import run_hourly_spawns
+
+logger = logging.getLogger(__name__)
 
 
 def create_app():
@@ -22,29 +22,25 @@ def create_app():
         supports_credentials=False,
     )
 
-    # Register blueprints
+    # Register blueprints. Each blueprint's routes already include their own
+    # leading path segment (e.g. "/events"), so they're mounted with no extra prefix.
     from .routes.users import users_bp
     from .routes.events import events_bp
-    from .routes.collectibles import collectibles_bp
     from .routes.leaderboard import leaderboard_bp
 
-    app.register_blueprint(users_bp, url_prefix="/users")
-    app.register_blueprint(events_bp, url_prefix="/events")
-    app.register_blueprint(collectibles_bp, url_prefix="/collectibles")
-    app.register_blueprint(leaderboard_bp, url_prefix="/leaderboard")
+    app.register_blueprint(users_bp, url_prefix="")
+    app.register_blueprint(events_bp, url_prefix="")
+    app.register_blueprint(leaderboard_bp, url_prefix="")
 
-    # Hourly random spawns (skip reloader parent so APScheduler is not duplicated in debug)
-    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-        scheduler = BackgroundScheduler()
-        scheduler.add_job(
-            func=run_hourly_spawns,
-            trigger="interval",
-            hours=1,
-            id="hourly_spawns",
-            replace_existing=True,
-        )
-        scheduler.start()
-        atexit.register(lambda: scheduler.shutdown())
+    @app.errorhandler(Exception)
+    def handle_unexpected_error(error):
+        # Routes already catch postgrest.exceptions.APIError; this is the backstop
+        # for everything else (e.g. Supabase being unreachable) so callers always
+        # get JSON instead of a leaked stack trace.
+        if isinstance(error, HTTPException):
+            return jsonify({"error": error.description}), error.code
+        logger.exception("Unhandled error")
+        return jsonify({"error": "internal server error"}), 500
 
     return app
 
