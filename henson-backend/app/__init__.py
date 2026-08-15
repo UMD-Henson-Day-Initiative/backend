@@ -27,10 +27,12 @@ def create_app():
     from .routes.users import users_bp
     from .routes.events import events_bp
     from .routes.leaderboard import leaderboard_bp
+    from .routes.admin import admin_bp
 
     app.register_blueprint(users_bp, url_prefix="")
     app.register_blueprint(events_bp, url_prefix="")
     app.register_blueprint(leaderboard_bp, url_prefix="")
+    app.register_blueprint(admin_bp, url_prefix="")
 
     @app.errorhandler(Exception)
     def handle_unexpected_error(error):

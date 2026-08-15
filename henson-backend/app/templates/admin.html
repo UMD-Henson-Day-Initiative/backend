@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Henson Day — Event Admin</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root { --red:#c8102e; --gold:#f5c518; --bg:#faf5f5; --ink:#1a1a2e; --muted:#8a8a8e; --border:#e6dcdc; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,"Helvetica Neue",Arial,sans-serif; background:var(--bg); color:var(--ink); }
+
+  /* ---- password gate ---- */
+  #gate { min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  .gate-card { background:#fff; border:1px solid var(--border); border-radius:14px; padding:32px; width:320px; box-shadow:0 8px 30px rgba(0,0,0,.08); }
+  .gate-card h1 { font-size:18px; margin:0 0 4px; }
+  .gate-card p { font-size:13px; color:var(--muted); margin:0 0 18px; }
+  .gate-card input { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; margin-bottom:10px; }
+  .gate-card button { width:100%; padding:10px; border:none; border-radius:8px; background:var(--red); color:#fff; font-weight:600; font-size:14px; cursor:pointer; }
+  .gate-error { color:#b91c1c; font-size:12.5px; margin-top:8px; min-height:16px; }
+
+  /* ---- main app ---- */
+  #app { display:none; max-width:900px; margin:0 auto; padding:32px 20px 80px; }
+  .topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+  .topbar h1 { font-size:20px; margin:0; }
+  .topbar .sub { font-size:12.5px; color:var(--muted); }
+  .btn { padding:9px 16px; border-radius:8px; border:none; font-size:13.5px; font-weight:600; cursor:pointer; }
+  .btn-primary { background:var(--red); color:#fff; }
+  .btn-ghost { background:#fff; border:1px solid var(--border); color:var(--ink); }
+  .btn-danger { background:#fde8e8; color:#991b1b; }
+  .btn-sm { padding:6px 10px; font-size:12px; }
+
+  table { width:100%; border-collapse:collapse; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  th, td { padding:12px 14px; text-align:left; font-size:13.5px; border-bottom:1px solid var(--border); }
+  th { background:#fff5f5; font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  tr:last-child td { border-bottom:none; }
+  td.actions { white-space:nowrap; text-align:right; }
+  td.actions button { margin-left:6px; }
+  .empty-row td { text-align:center; color:var(--muted); padding:28px; }
+
+  /* ---- modal ---- */
+  .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); align-items:center; justify-content:center; z-index:1000; }
+  .overlay.open { display:flex; }
+  .modal { background:#fff; border-radius:14px; width:600px; max-width:92vw; max-height:88vh; overflow-y:auto; padding:24px; }
+  .modal h2 { margin:0 0 16px; font-size:17px; }
+  .field { margin-bottom:14px; }
+  .field label { display:block; font-size:12.5px; font-weight:600; color:var(--muted); margin-bottom:5px; text-transform:uppercase; letter-spacing:.03em; }
+  .field input, .field textarea { width:100%; padding:9px 11px; border:1px solid var(--border); border-radius:8px; font-size:14px; font-family:inherit; }
+  .field textarea { min-height:70px; resize:vertical; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  #map { height:220px; border-radius:10px; margin-bottom:8px; }
+  .coord-readout { font-size:12.5px; color:var(--muted); margin-bottom:14px; }
+  .modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
+  .form-error { color:#b91c1c; font-size:12.5px; margin-top:6px; min-height:16px; }
+</style>
+</head>
+<body>
+
+<!-- Password gate -->
+<div id="gate">
+  <div class="gate-card">
+    <h1>Henson Day Admin</h1>
+    <p>Enter the admin password to manage events.</p>
+    <input type="password" id="password-input" placeholder="Password" autofocus>
+    <button onclick="attemptUnlock()">Unlock</button>
+    <div class="gate-error" id="gate-error"></div>
+  </div>
+</div>
+
+<!-- Main app -->
+<div id="app">
+  <div class="topbar">
+    <div>
+      <h1>Events</h1>
+      <div class="sub">Add, edit, or delete Henson Day events.</div>
+    </div>
+    <button class="btn btn-primary" onclick="openForm()">+ Add Event</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>When</th>
+        <th>Location</th>
+        <th>Points</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="events-body">
+      <tr class="empty-row"><td colspan="5">Loading…</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Add/Edit modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="form-title">Add Event</h2>
+
+    <div class="field">
+      <label>Title</label>
+      <input type="text" id="f-title" placeholder="Stadium Spirit Rally">
+    </div>
+
+    <div class="field">
+      <label>Description</label>
+      <textarea id="f-description" placeholder="What happens at this event?"></textarea>
+    </div>
+
+    <div class="field">
+      <label>Location name</label>
+      <input type="text" id="f-location" placeholder="Maryland Stadium">
+    </div>
+
+    <div class="field">
+      <label>Location on map (click to set)</label>
+      <div id="map"></div>
+      <div class="coord-readout" id="coord-readout">No location picked yet.</div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Starts at</label>
+        <input type="datetime-local" id="f-start">
+      </div>
+      <div class="field">
+        <label>Ends at (optional)</label>
+        <input type="datetime-local" id="f-end">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Points awarded</label>
+      <input type="number" id="f-points" min="0" step="1" placeholder="25">
+    </div>
+
+    <div class="form-error" id="form-error"></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeForm()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEvent()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'hensonAdminPassword';
+let adminPassword = sessionStorage.getItem(STORAGE_KEY) || '';
+let events = [];
+let editingId = null;   // null => creating new event
+let map = null;
+let marker = null;
+let pickedLat = null;
+let pickedLng = null;
+
+const UMD_CENTER = [38.9869, -76.9426];
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('password-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') attemptUnlock();
+  });
+  if (adminPassword) attemptUnlock(adminPassword);
+});
+
+async function apiFetch(path, options = {}) {
+  const headers = Object.assign({ 'X-Admin-Password': adminPassword }, options.headers || {});
+  const res = await fetch(path, Object.assign({}, options, { headers }));
+  return res;
+}
+
+async function attemptUnlock(prefilled) {
+  const password = prefilled || document.getElementById('password-input').value;
+  const res = await apiFetchWithPassword('/admin/api/events', password);
+  if (res.status === 200) {
+    adminPassword = password;
+    sessionStorage.setItem(STORAGE_KEY, password);
+    events = await res.json();
+    showApp();
+    renderEvents();
+  } else {
+    sessionStorage.removeItem(STORAGE_KEY);
+    document.getElementById('gate-error').textContent = 'Wrong password.';
+  }
+}
+
+function apiFetchWithPassword(path, password, options = {}) {
+  const headers = Object.assign({ 'X-Admin-Password': password }, options.headers || {});
+  return fetch(path, Object.assign({}, options, { headers }));
+}
+
+function showApp() {
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+}
+
+function renderEvents() {
+  const body = document.getElementById('events-body');
+  if (!events.length) {
+    body.innerHTML = '<tr class="empty-row"><td colspan="5">No events yet — add one to get started.</td></tr>';
+    return;
+  }
+  body.innerHTML = events.map(ev => `
+    <tr>
+      <td>${escapeHtml(ev.title)}</td>
+      <td>${formatWhen(ev.start_time, ev.end_time)}</td>
+      <td>${escapeHtml(ev.location_name)}</td>
+      <td>${ev.points}</td>
+      <td class="actions">
+        <button class="btn btn-ghost btn-sm" onclick="openForm('${ev.id}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteEvent('${ev.id}')">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function formatWhen(start, end) {
+  const s = new Date(start);
+  const opts = { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' };
+  let text = s.toLocaleString(undefined, opts);
+  if (end) {
+    const e = new Date(end);
+    text += ' – ' + e.toLocaleString(undefined, { hour:'numeric', minute:'2-digit' });
+  }
+  return text;
+}
+
+function toDateTimeLocal(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function openForm(eventId) {
+  editingId = eventId || null;
+  document.getElementById('form-error').textContent = '';
+  const existing = eventId ? events.find(e => e.id === eventId) : null;
+
+  document.getElementById('form-title').textContent = existing ? 'Edit Event' : 'Add Event';
+  document.getElementById('f-title').value = existing ? existing.title : '';
+  document.getElementById('f-description').value = existing ? existing.description : '';
+  document.getElementById('f-location').value = existing ? existing.location_name : '';
+  document.getElementById('f-start').value = existing ? toDateTimeLocal(existing.start_time) : '';
+  document.getElementById('f-end').value = existing ? toDateTimeLocal(existing.end_time) : '';
+  document.getElementById('f-points').value = existing ? existing.points : '';
+
+  pickedLat = existing ? existing.latitude : null;
+  pickedLng = existing ? existing.longitude : null;
+  updateCoordReadout();
+
+  document.getElementById('overlay').classList.add('open');
+
+  // Map must be initialized after the modal is visible, and only once.
+  setTimeout(() => {
+    if (!map) {
+      map = L.map('map').setView(UMD_CENTER, 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+      map.on('click', e => {
+        pickedLat = e.latlng.lat;
+        pickedLng = e.latlng.lng;
+        placeMarker();
+        updateCoordReadout();
+      });
+    }
+    map.invalidateSize();
+    if (pickedLat != null && pickedLng != null) {
+      map.setView([pickedLat, pickedLng], 16);
+      placeMarker();
+    } else {
+      map.setView(UMD_CENTER, 15);
+      if (marker) { map.removeLayer(marker); marker = null; }
+    }
+  }, 30);
+}
+
+function placeMarker() {
+  if (marker) map.removeLayer(marker);
+  marker = L.marker([pickedLat, pickedLng]).addTo(map);
+}
+
+function updateCoordReadout() {
+  const el = document.getElementById('coord-readout');
+  el.textContent = (pickedLat != null && pickedLng != null)
+    ? `Picked: ${pickedLat.toFixed(5)}, ${pickedLng.toFixed(5)}`
+    : 'No location picked yet.';
+}
+
+function closeForm() {
+  document.getElementById('overlay').classList.remove('open');
+}
+
+async function saveEvent() {
+  const title = document.getElementById('f-title').value.trim();
+  const description = document.getElementById('f-description').value.trim();
+  const location_name = document.getElementById('f-location').value.trim();
+  const startRaw = document.getElementById('f-start').value;
+  const endRaw = document.getElementById('f-end').value;
+  const pointsRaw = document.getElementById('f-points').value;
+  const errorEl = document.getElementById('form-error');
+
+  if (!title) return errorEl.textContent = 'Title is required.';
+  if (!location_name) return errorEl.textContent = 'Location name is required.';
+  if (pickedLat == null || pickedLng == null) return errorEl.textContent = 'Click the map to set a location.';
+  if (!startRaw) return errorEl.textContent = 'Start time is required.';
+  if (pointsRaw === '' || Number(pointsRaw) < 0) return errorEl.textContent = 'Points must be zero or a positive number.';
+
+  const payload = {
+    title,
+    description,
+    location_name,
+    latitude: pickedLat,
+    longitude: pickedLng,
+    start_time: new Date(startRaw).toISOString(),
+    end_time: endRaw ? new Date(endRaw).toISOString() : null,
+    points: Number(pointsRaw)
+  };
+
+  const url = editingId ? `/admin/api/events/${editingId}` : '/admin/api/events';
+  const method = editingId ? 'PATCH' : 'POST';
+
+  const res = await apiFetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    errorEl.textContent = body.error || 'Something went wrong.';
+    return;
+  }
+
+  closeForm();
+  await refreshEvents();
+}
+
+async function deleteEvent(eventId) {
+  const ev = events.find(e => e.id === eventId);
+  if (!confirm(`Delete "${ev ? ev.title : 'this event'}"? This can't be undone.`)) return;
+
+  const res = await apiFetch(`/admin/api/events/${eventId}`, { method: 'DELETE' });
+  if (!res.ok) {
+    alert('Failed to delete event.');
+    return;
+  }
+  await refreshEvents();
+}
+
+async function refreshEvents() {
+  const res = await apiFetch('/admin/api/events');
+  if (res.status === 200) {
+    events = await res.json();
+    renderEvents();
+  }
+}
+</script>
+</body>
+</html>

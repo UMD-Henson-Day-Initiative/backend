@@ -119,6 +119,16 @@ Top 10 players by total points:
 
 ---
 
+## Admin: managing events
+
+`GET /admin` serves a small password-protected page (no UMD/Google login involved) for non-technical event organizers to add, edit, and delete events — including a click-a-map picker for location, since organizers won't know an event's latitude/longitude off-hand.
+
+* Protected by a single shared password: set `ADMIN_PASSWORD` in `.env`, then open `http://127.0.0.1:5000/admin` (or wherever the backend is deployed) and enter it.
+* Anyone with the password can add/edit/delete real events — treat it like any other credential, and always serve it over HTTPS in production (the password travels on every request).
+* Under the hood it calls `GET/POST /admin/api/events` and `PATCH/DELETE /admin/api/events/<id>`, each requiring an `X-Admin-Password` header — these are separate from the UMD-auth `/events` routes the iOS app uses, so organizers never need a UMD Google account.
+
+---
+
 ## Local Development
 
 ```bash
@@ -141,13 +151,17 @@ curl http://127.0.0.1:5000/events -H "Authorization: Bearer <token>"
 henson-backend/
 ├── app/
 │   ├── auth.py           # Supabase JWT verification + UMD domain check
+│   ├── admin_auth.py     # Shared-password auth for the /admin page
 │   ├── database.py       # Supabase client
 │   ├── settings.py       # Config from environment variables
 │   ├── utils.py          # Shared helpers (haversine distance, error formatting)
+│   ├── templates/
+│   │   └── admin.html    # Event-management page (password gate + map picker)
 │   └── routes/
 │       ├── users.py       # GET /me
 │       ├── events.py      # GET /events, GET /events/<id>, POST /events/<id>/collect
-│       └── leaderboard.py # GET /leaderboard
+│       ├── leaderboard.py # GET /leaderboard
+│       └── admin.py       # GET /admin, /admin/api/events CRUD
 ├── supabase/
 │   └── schema.sql        # profiles, events, event_collections + RLS
 ├── autoapp.py            # Entry point
