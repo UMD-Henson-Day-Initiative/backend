@@ -18,11 +18,9 @@ from app.utils import api_error_payload
 admin_bp = Blueprint("admin", __name__)
 
 EVENT_COLUMNS = (
-    "id, title, description, location_name, latitude, longitude, "
+    "id, title, description, location_name, latitude, longitude, is_virtual, "
     "start_time, end_time, points, link, created_at, updated_at"
 )
-
-REQUIRED_FIELDS = ("title", "location_name", "latitude", "longitude", "start_time", "points")
 
 
 @admin_bp.route("/admin", methods=["GET"])
@@ -49,17 +47,29 @@ def _parse_event_payload(data: dict, *, partial: bool) -> dict:
             raise ValueError("location_name is required")
         fields["location_name"] = location_name
 
-    if "latitude" in data or not partial:
-        try:
-            fields["latitude"] = float(data.get("latitude"))
-        except (TypeError, ValueError):
-            raise ValueError("latitude must be a number")
+    if "is_virtual" in data or not partial:
+        fields["is_virtual"] = bool(data.get("is_virtual", False))
 
-    if "longitude" in data or not partial:
-        try:
-            fields["longitude"] = float(data.get("longitude"))
-        except (TypeError, ValueError):
-            raise ValueError("longitude must be a number")
+    is_virtual = fields.get("is_virtual", False)
+
+    if is_virtual:
+        # Virtual events have no map location, regardless of what was sent.
+        if "latitude" in data or not partial:
+            fields["latitude"] = None
+        if "longitude" in data or not partial:
+            fields["longitude"] = None
+    else:
+        if "latitude" in data or not partial:
+            try:
+                fields["latitude"] = float(data.get("latitude"))
+            except (TypeError, ValueError):
+                raise ValueError("latitude must be a number")
+
+        if "longitude" in data or not partial:
+            try:
+                fields["longitude"] = float(data.get("longitude"))
+            except (TypeError, ValueError):
+                raise ValueError("longitude must be a number")
 
     if "start_time" in data or not partial:
         start_time = (data.get("start_time") or "").strip()

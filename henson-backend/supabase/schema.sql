@@ -42,18 +42,31 @@ create table if not exists events (
     title           text not null,
     description     text not null default '',
     location_name   text not null,
-    latitude        double precision not null,
-    longitude       double precision not null,
+    latitude        double precision,
+    longitude       double precision,
+    is_virtual      boolean not null default false,
     start_time      timestamptz not null,
     end_time        timestamptz,
     points          integer not null default 10,
     link            text not null default '',
     created_at      timestamptz not null default now(),
-    updated_at      timestamptz not null default now()
+    updated_at      timestamptz not null default now(),
+    constraint events_virtual_location_check check (
+        (is_virtual = true and latitude is null and longitude is null)
+        or (is_virtual = false and latitude is not null and longitude is not null)
+    )
 );
 
--- Safe to re-run against a database created before the `link` column existed.
+-- Safe to re-run against a database created before these columns existed.
 alter table events add column if not exists link text not null default '';
+alter table events add column if not exists is_virtual boolean not null default false;
+alter table events alter column latitude drop not null;
+alter table events alter column longitude drop not null;
+alter table events drop constraint if exists events_virtual_location_check;
+alter table events add constraint events_virtual_location_check check (
+    (is_virtual = true and latitude is null and longitude is null)
+    or (is_virtual = false and latitude is not null and longitude is not null)
+);
 
 create index if not exists idx_events_start_time on events (start_time);
 

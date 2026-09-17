@@ -121,6 +121,13 @@
   .field textarea { min-height:70px; resize:vertical; }
   .field .hint { font-size:11.5px; color:var(--muted); margin-top:4px; }
   .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .toggle-row { display:flex; align-items:center; gap:10px; cursor:pointer; text-transform:none; font-weight:500; }
+  .toggle-row input[type="checkbox"] { width:17px; height:17px; accent-color:var(--red); flex:none; }
+  .toggle-row span { font-size:13.5px; color:var(--ink); }
+  .virtual-tag {
+    display:inline-block; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em;
+    color:var(--red-deep); background:var(--red-tint); padding:2px 7px; border-radius:999px; margin-left:6px;
+  }
 
   .search-row { display:flex; gap:8px; }
   .search-row input { flex:1; }
@@ -222,10 +229,16 @@
 
       <div class="section-label">Location</div>
       <div class="field">
-        <label>Location name</label>
-        <input type="text" id="f-location" placeholder="Maryland Stadium">
+        <label class="toggle-row">
+          <input type="checkbox" id="f-is-virtual" onchange="onVirtualToggle()">
+          <span>This is a virtual event (no physical location — livestream, online form, etc.)</span>
+        </label>
       </div>
       <div class="field">
+        <label id="f-location-label">Location name</label>
+        <input type="text" id="f-location" placeholder="Maryland Stadium">
+      </div>
+      <div class="field" id="location-map-section">
         <label>Search address (jumps the map — click the map to drop the pin)</label>
         <div class="search-row">
           <input type="text" id="f-address-search" placeholder="e.g. McKeldin Library, College Park, MD">
@@ -340,7 +353,7 @@ function renderEvents() {
     <tr>
       <td>${escapeHtml(ev.title)}</td>
       <td>${formatWhen(ev.start_time, ev.end_time)}</td>
-      <td>${escapeHtml(ev.location_name)}</td>
+      <td>${escapeHtml(ev.location_name)}${ev.is_virtual ? '<span class="virtual-tag">Virtual</span>' : ''}</td>
       <td><span class="points-pill">+${ev.points}</span></td>
       <td>${ev.link ? `<a class="link-icon" href="${escapeHtml(ev.link)}" target="_blank" rel="noopener">🔗</a>` : '<span class="no-link">—</span>'}</td>
       <td class="actions">
@@ -393,31 +406,54 @@ function openForm(eventId) {
   pickedLng = existing ? existing.longitude : null;
   updateCoordReadout();
 
+  document.getElementById('f-is-virtual').checked = existing ? !!existing.is_virtual : false;
+
   document.getElementById('overlay').classList.add('open');
 
-  // Map must be initialized after the modal is visible, and only once.
-  setTimeout(() => {
-    if (!map) {
-      map = L.map('map').setView(UMD_CENTER, 15);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
-      map.on('click', e => {
-        pickedLat = e.latlng.lat;
-        pickedLng = e.latlng.lng;
-        placeMarker();
-        updateCoordReadout();
-      });
-    }
-    map.invalidateSize();
-    if (pickedLat != null && pickedLng != null) {
-      map.setView([pickedLat, pickedLng], 16);
+  // onVirtualToggle schedules the map (re)sync itself when not virtual —
+  // must run after the overlay is visible, or the map container is 0×0.
+  onVirtualToggle();
+}
+
+function syncMap() {
+  if (!map) {
+    map = L.map('map').setView(UMD_CENTER, 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+    map.on('click', e => {
+      pickedLat = e.latlng.lat;
+      pickedLng = e.latlng.lng;
       placeMarker();
-    } else {
-      map.setView(UMD_CENTER, 15);
-      if (marker) { map.removeLayer(marker); marker = null; }
-    }
-  }, 30);
+      updateCoordReadout();
+    });
+  }
+  map.invalidateSize();
+  if (pickedLat != null && pickedLng != null) {
+    map.setView([pickedLat, pickedLng], 16);
+    placeMarker();
+  } else {
+    map.setView(UMD_CENTER, 15);
+    if (marker) { map.removeLayer(marker); marker = null; }
+  }
+}
+
+// Toggles the location/map section based on the "virtual event" checkbox.
+// Switching to virtual clears any picked pin; switching back re-syncs the map
+// (it may have been hidden — and thus zero-sized — since it was last shown).
+function onVirtualToggle() {
+  const isVirtual = document.getElementById('f-is-virtual').checked;
+  document.getElementById('location-map-section').style.display = isVirtual ? 'none' : 'block';
+  document.getElementById('f-location-label').textContent = isVirtual ? 'Location name (e.g. Zoom, Discord)' : 'Location name';
+  document.getElementById('f-location').placeholder = isVirtual ? 'Zoom / Discord / Online' : 'Maryland Stadium';
+
+  if (isVirtual) {
+    pickedLat = null;
+    pickedLng = null;
+    updateCoordReadout();
+  } else {
+    setTimeout(syncMap, 30);
+  }
 }
 
 function placeMarker() {
@@ -472,11 +508,12 @@ async function saveEvent() {
   const endRaw = document.getElementById('f-end').value;
   const pointsRaw = document.getElementById('f-points').value;
   const link = document.getElementById('f-link').value.trim();
+  const isVirtual = document.getElementById('f-is-virtual').checked;
   const errorEl = document.getElementById('form-error');
 
   if (!title) return errorEl.textContent = 'Title is required.';
   if (!location_name) return errorEl.textContent = 'Location name is required.';
-  if (pickedLat == null || pickedLng == null) return errorEl.textContent = 'Click the map to set a location.';
+  if (!isVirtual && (pickedLat == null || pickedLng == null)) return errorEl.textContent = 'Click the map to set a location, or mark this event virtual.';
   if (!startRaw) return errorEl.textContent = 'Start time is required.';
   if (pointsRaw === '' || Number(pointsRaw) < 0) return errorEl.textContent = 'Points must be zero or a positive number.';
   if (link && !/^https?:\/\//i.test(link)) return errorEl.textContent = 'Link must start with http:// or https://';
@@ -485,8 +522,9 @@ async function saveEvent() {
     title,
     description,
     location_name,
-    latitude: pickedLat,
-    longitude: pickedLng,
+    is_virtual: isVirtual,
+    latitude: isVirtual ? null : pickedLat,
+    longitude: isVirtual ? null : pickedLng,
     start_time: new Date(startRaw).toISOString(),
     end_time: endRaw ? new Date(endRaw).toISOString() : null,
     points: Number(pointsRaw),

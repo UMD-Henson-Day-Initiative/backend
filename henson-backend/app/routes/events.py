@@ -20,7 +20,7 @@ events_bp = Blueprint("events", __name__)
 COLLECT_RADIUS_METERS = 160.934  # 0.1 mile
 
 EVENT_COLUMNS = (
-    "id, title, description, location_name, latitude, longitude, "
+    "id, title, description, location_name, latitude, longitude, is_virtual, "
     "start_time, end_time, points, link"
 )
 
@@ -110,7 +110,7 @@ def collect_event_coin(event_id):
     try:
         event_res = (
             supabase.table("events")
-            .select("id, latitude, longitude, points")
+            .select("id, latitude, longitude, points, is_virtual")
             .eq("id", event_id)
             .execute()
         )
@@ -121,9 +121,13 @@ def collect_event_coin(event_id):
         return jsonify({"error": "event not found"}), 404
     event = rows[0]
 
-    distance = haversine_meters(user_lat, user_lng, event["latitude"], event["longitude"])
-    if distance > COLLECT_RADIUS_METERS:
-        return jsonify({"error": "too far away", "distance_meters": round(distance, 1)}), 403
+    # Virtual events have no location, so there's nothing to be "close enough" to.
+    if event["is_virtual"]:
+        distance = 0.0
+    else:
+        distance = haversine_meters(user_lat, user_lng, event["latitude"], event["longitude"])
+        if distance > COLLECT_RADIUS_METERS:
+            return jsonify({"error": "too far away", "distance_meters": round(distance, 1)}), 403
 
     points = event["points"]
     try:
