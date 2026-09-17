@@ -7,52 +7,129 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-  :root { --red:#c8102e; --gold:#f5c518; --bg:#faf5f5; --ink:#1a1a2e; --muted:#8a8a8e; --border:#e6dcdc; }
+  :root {
+    --red:#c8102e; --red-deep:#9c0a24; --gold:#f7b500; --gold-bright:#ffd640;
+    --bg:#fffaee; --card:#ffffff; --ink:#1a1a2e; --muted:#8f7a66; --border:#f0e2c8;
+    --gold-tint:#fff6d6; --red-tint:#ffebea;
+  }
   * { box-sizing: border-box; }
-  body { margin:0; font-family:-apple-system,"Helvetica Neue",Arial,sans-serif; background:var(--bg); color:var(--ink); }
+  body {
+    margin:0; font-family:-apple-system,"Helvetica Neue",Arial,sans-serif;
+    background:var(--bg); color:var(--ink);
+  }
+  .hero-gradient { background:linear-gradient(135deg, var(--red), var(--red-deep) 55%, var(--gold)); }
 
   /* ---- password gate ---- */
-  #gate { min-height:100vh; display:flex; align-items:center; justify-content:center; }
-  .gate-card { background:#fff; border:1px solid var(--border); border-radius:14px; padding:32px; width:320px; box-shadow:0 8px 30px rgba(0,0,0,.08); }
-  .gate-card h1 { font-size:18px; margin:0 0 4px; }
-  .gate-card p { font-size:13px; color:var(--muted); margin:0 0 18px; }
-  .gate-card input { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; margin-bottom:10px; }
-  .gate-card button { width:100%; padding:10px; border:none; border-radius:8px; background:var(--red); color:#fff; font-weight:600; font-size:14px; cursor:pointer; }
-  .gate-error { color:#b91c1c; font-size:12.5px; margin-top:8px; min-height:16px; }
+  #gate { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .gate-card {
+    background:var(--card); border-radius:20px; padding:0; width:360px; max-width:100%;
+    box-shadow:0 20px 50px rgba(200,16,46,.15); overflow:hidden;
+  }
+  .gate-banner { padding:28px 28px 22px; color:#fff; }
+  .gate-banner h1 { font-size:20px; margin:0 0 4px; letter-spacing:.02em; }
+  .gate-banner p { font-size:13px; margin:0; color:rgba(255,255,255,.9); }
+  .gate-body { padding:22px 28px 28px; }
+  .gate-card input {
+    width:100%; padding:12px 14px; border:1.5px solid var(--border); border-radius:10px;
+    font-size:14px; margin-bottom:12px; outline:none; transition:border-color .15s;
+  }
+  .gate-card input:focus { border-color:var(--gold); }
+  .gate-card button {
+    width:100%; padding:12px; border:none; border-radius:10px; color:#fff; font-weight:700;
+    font-size:14px; cursor:pointer; background:linear-gradient(135deg, var(--red), var(--red-deep));
+    box-shadow:0 6px 16px rgba(200,16,46,.3);
+  }
+  .gate-error { color:#b91c1c; font-size:12.5px; margin-top:10px; min-height:16px; text-align:center; }
 
   /* ---- main app ---- */
-  #app { display:none; max-width:900px; margin:0 auto; padding:32px 20px 80px; }
-  .topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
-  .topbar h1 { font-size:20px; margin:0; }
-  .topbar .sub { font-size:12.5px; color:var(--muted); }
-  .btn { padding:9px 16px; border-radius:8px; border:none; font-size:13.5px; font-weight:600; cursor:pointer; }
-  .btn-primary { background:var(--red); color:#fff; }
-  .btn-ghost { background:#fff; border:1px solid var(--border); color:var(--ink); }
-  .btn-danger { background:#fde8e8; color:#991b1b; }
-  .btn-sm { padding:6px 10px; font-size:12px; }
+  #app { display:none; }
+  .header-banner { color:#fff; padding:30px 24px 26px; }
+  .header-inner { max-width:960px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+  .header-inner h1 { font-size:24px; margin:0; letter-spacing:.02em; }
+  .header-inner .sub { font-size:13px; color:rgba(255,255,255,.88); margin-top:2px; }
+  .header-actions { display:flex; gap:10px; }
 
-  table { width:100%; border-collapse:collapse; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.06); }
-  th, td { padding:12px 14px; text-align:left; font-size:13.5px; border-bottom:1px solid var(--border); }
-  th { background:#fff5f5; font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  #content { max-width:960px; margin:0 auto; padding:24px 20px 80px; }
+
+  .btn { padding:10px 18px; border-radius:10px; border:none; font-size:13.5px; font-weight:700; cursor:pointer; transition:transform .1s, box-shadow .1s; }
+  .btn:active { transform:scale(0.97); }
+  .btn-primary { background:linear-gradient(135deg, var(--red), var(--red-deep)); color:#fff; box-shadow:0 6px 14px rgba(200,16,46,.32); }
+  .btn-gold { background:linear-gradient(135deg, var(--gold-bright), var(--gold)); color:var(--ink); }
+  .btn-ghost { background:#fff; border:1.5px solid var(--border); color:var(--ink); }
+  .btn-ghost.on-dark { background:rgba(255,255,255,.16); border:1.5px solid rgba(255,255,255,.4); color:#fff; }
+  .btn-danger { background:var(--red-tint); color:#991b1b; }
+  .btn-sm { padding:7px 12px; font-size:12px; box-shadow:none; }
+
+  /* ---- how-to card ---- */
+  .howto {
+    background:var(--card); border-radius:16px; padding:20px 22px; margin-bottom:20px;
+    border:1.5px solid var(--gold-tint); box-shadow:0 2px 10px rgba(0,0,0,.04);
+  }
+  .howto-head { display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
+  .howto-head h2 { font-size:15px; margin:0; display:flex; align-items:center; gap:8px; }
+  .howto-head h2 .emoji { font-size:17px; }
+  .howto-toggle { font-size:12.5px; color:var(--muted); font-weight:600; }
+  .howto-steps { margin:16px 0 0; padding:0; list-style:none; display:grid; gap:12px; }
+  .howto-steps.collapsed { display:none; }
+  .howto-steps li { display:flex; gap:12px; align-items:flex-start; font-size:13.5px; line-height:1.5; }
+  .howto-num {
+    flex:none; width:22px; height:22px; border-radius:50%; background:var(--gold-tint); color:var(--red);
+    display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800;
+  }
+  .howto-steps b { color:var(--ink); }
+  .howto-steps span { color:var(--muted); }
+
+  /* ---- events card ---- */
+  .events-card { background:var(--card); border-radius:16px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,.04); border:1px solid var(--border); }
+  .events-toolbar { display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--border); }
+  .events-toolbar h2 { font-size:15px; margin:0; }
+  .count-pill { display:inline-block; background:var(--gold-tint); color:var(--red-deep); font-size:11.5px; font-weight:800; padding:2px 9px; border-radius:999px; margin-left:8px; }
+
+  table { width:100%; border-collapse:collapse; }
+  th, td { padding:13px 16px; text-align:left; font-size:13.5px; border-bottom:1px solid var(--border); }
+  th { background:var(--gold-tint); font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--red-deep); font-weight:800; }
+  tbody tr { transition:background .1s; }
+  tbody tr:hover { background:var(--gold-tint); }
   tr:last-child td { border-bottom:none; }
   td.actions { white-space:nowrap; text-align:right; }
   td.actions button { margin-left:6px; }
-  .empty-row td { text-align:center; color:var(--muted); padding:28px; }
+  .empty-row td { text-align:center; color:var(--muted); padding:36px; }
+  .points-pill { display:inline-block; background:linear-gradient(135deg, var(--gold-bright), var(--gold)); color:var(--ink); font-weight:800; font-size:12.5px; padding:3px 10px; border-radius:999px; }
+  .link-icon { color:var(--red); text-decoration:none; font-size:15px; }
+  .link-icon:hover { color:var(--red-deep); }
+  .no-link { color:#d8cfc3; }
 
   /* ---- modal ---- */
-  .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); align-items:center; justify-content:center; z-index:1000; }
+  .overlay { display:none; position:fixed; inset:0; background:rgba(26,26,46,.5); align-items:center; justify-content:center; z-index:1000; padding:20px; }
   .overlay.open { display:flex; }
-  .modal { background:#fff; border-radius:14px; width:600px; max-width:92vw; max-height:88vh; overflow-y:auto; padding:24px; }
-  .modal h2 { margin:0 0 16px; font-size:17px; }
+  .modal { background:#fff; border-radius:18px; width:620px; max-width:100%; max-height:90vh; overflow-y:auto; }
+  .modal-header { padding:22px 26px; color:#fff; display:flex; align-items:center; justify-content:space-between; }
+  .modal-header h2 { margin:0; font-size:17px; }
+  .modal-close { background:rgba(255,255,255,.18); border:none; color:#fff; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:15px; line-height:1; }
+  .modal-body { padding:22px 26px 26px; }
+
+  .section-label { font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--red); margin:20px 0 10px; }
+  .section-label:first-child { margin-top:0; }
+
   .field { margin-bottom:14px; }
-  .field label { display:block; font-size:12.5px; font-weight:600; color:var(--muted); margin-bottom:5px; text-transform:uppercase; letter-spacing:.03em; }
-  .field input, .field textarea { width:100%; padding:9px 11px; border:1px solid var(--border); border-radius:8px; font-size:14px; font-family:inherit; }
+  .field label { display:block; font-size:12.5px; font-weight:600; color:var(--muted); margin-bottom:5px; }
+  .field input, .field textarea {
+    width:100%; padding:10px 12px; border:1.5px solid var(--border); border-radius:10px; font-size:14px;
+    font-family:inherit; outline:none; transition:border-color .15s;
+  }
+  .field input:focus, .field textarea:focus { border-color:var(--gold); }
   .field textarea { min-height:70px; resize:vertical; }
+  .field .hint { font-size:11.5px; color:var(--muted); margin-top:4px; }
   .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  #map { height:220px; border-radius:10px; margin-bottom:8px; }
-  .coord-readout { font-size:12.5px; color:var(--muted); margin-bottom:14px; }
-  .modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
-  .form-error { color:#b91c1c; font-size:12.5px; margin-top:6px; min-height:16px; }
+
+  .search-row { display:flex; gap:8px; }
+  .search-row input { flex:1; }
+  #search-status { font-size:12px; color:var(--muted); margin-top:6px; min-height:15px; }
+  #map { height:220px; border-radius:12px; margin:10px 0 6px; border:2px solid var(--border); }
+  .coord-readout { font-size:12.5px; color:var(--muted); margin-bottom:6px; }
+
+  .modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; padding-top:18px; border-top:1px solid var(--border); }
+  .form-error { color:#b91c1c; font-size:12.5px; margin-top:8px; min-height:16px; font-weight:600; }
 </style>
 </head>
 <body>
@@ -60,87 +137,134 @@
 <!-- Password gate -->
 <div id="gate">
   <div class="gate-card">
-    <h1>Henson Day Admin</h1>
-    <p>Enter the admin password to manage events.</p>
-    <input type="password" id="password-input" placeholder="Password" autofocus>
-    <button onclick="attemptUnlock()">Unlock</button>
-    <div class="gate-error" id="gate-error"></div>
+    <div class="gate-banner hero-gradient">
+      <h1>Henson Day Admin</h1>
+      <p>Manage the scavenger hunt's events.</p>
+    </div>
+    <div class="gate-body">
+      <input type="password" id="password-input" placeholder="Admin password" autofocus>
+      <button onclick="attemptUnlock()">Unlock</button>
+      <div class="gate-error" id="gate-error"></div>
+    </div>
   </div>
 </div>
 
 <!-- Main app -->
 <div id="app">
-  <div class="topbar">
-    <div>
-      <h1>Events</h1>
-      <div class="sub">Add, edit, or delete Henson Day events.</div>
+  <div class="header-banner hero-gradient">
+    <div class="header-inner">
+      <div>
+        <h1>Henson Day Events</h1>
+        <div class="sub">Add, edit, or delete the events players see in the app.</div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost on-dark btn-sm" onclick="toggleHowTo()">How to use</button>
+        <button class="btn btn-gold" onclick="openForm()">+ Add Event</button>
+      </div>
     </div>
-    <button class="btn btn-primary" onclick="openForm()">+ Add Event</button>
   </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Title</th>
-        <th>When</th>
-        <th>Location</th>
-        <th>Points</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody id="events-body">
-      <tr class="empty-row"><td colspan="5">Loading…</td></tr>
-    </tbody>
-  </table>
+  <div id="content">
+    <div class="howto" id="howto-card">
+      <div class="howto-head" onclick="toggleHowTo()">
+        <h2><span class="emoji">💡</span> How to use this page</h2>
+        <span class="howto-toggle" id="howto-toggle-label">Hide</span>
+      </div>
+      <ol class="howto-steps" id="howto-steps">
+        <li><span class="howto-num">1</span><span><b>Click "+ Add Event"</b> to open the form, or <b>Edit</b> on any row to change an existing event.</span></li>
+        <li><span class="howto-num">2</span><span>Fill in the <b>title, description, and location name</b> — this is what players see in the app.</span></li>
+        <li><span class="howto-num">3</span><span>Use <b>Search address</b> to jump the map to a location, then <b>click on the map</b> to drop the pin exactly where the event happens.</span></li>
+        <li><span class="howto-num">4</span><span>Set the <b>start/end time and points</b>, and optionally add a <b>link</b> (a website, form, or registration page) — it'll show as a tappable link in the app.</span></li>
+        <li><span class="howto-num">5</span><span>Click <b>Save</b>. Changes appear in the app right away — no restart needed.</span></li>
+      </ol>
+    </div>
+
+    <div class="events-card">
+      <div class="events-toolbar">
+        <h2>Events<span class="count-pill" id="events-count">0</span></h2>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>When</th>
+            <th>Location</th>
+            <th>Points</th>
+            <th>Link</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="events-body">
+          <tr class="empty-row"><td colspan="6">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <!-- Add/Edit modal -->
 <div class="overlay" id="overlay">
   <div class="modal">
-    <h2 id="form-title">Add Event</h2>
-
-    <div class="field">
-      <label>Title</label>
-      <input type="text" id="f-title" placeholder="Stadium Spirit Rally">
+    <div class="modal-header hero-gradient">
+      <h2 id="form-title">Add Event</h2>
+      <button class="modal-close" onclick="closeForm()">✕</button>
     </div>
-
-    <div class="field">
-      <label>Description</label>
-      <textarea id="f-description" placeholder="What happens at this event?"></textarea>
-    </div>
-
-    <div class="field">
-      <label>Location name</label>
-      <input type="text" id="f-location" placeholder="Maryland Stadium">
-    </div>
-
-    <div class="field">
-      <label>Location on map (click to set)</label>
-      <div id="map"></div>
-      <div class="coord-readout" id="coord-readout">No location picked yet.</div>
-    </div>
-
-    <div class="row2">
+    <div class="modal-body">
+      <div class="section-label">Basic info</div>
       <div class="field">
-        <label>Starts at</label>
-        <input type="datetime-local" id="f-start">
+        <label>Title</label>
+        <input type="text" id="f-title" placeholder="Stadium Spirit Rally">
       </div>
       <div class="field">
-        <label>Ends at (optional)</label>
-        <input type="datetime-local" id="f-end">
+        <label>Description</label>
+        <textarea id="f-description" placeholder="What happens at this event?"></textarea>
       </div>
-    </div>
 
-    <div class="field">
-      <label>Points awarded</label>
-      <input type="number" id="f-points" min="0" step="1" placeholder="25">
-    </div>
+      <div class="section-label">Location</div>
+      <div class="field">
+        <label>Location name</label>
+        <input type="text" id="f-location" placeholder="Maryland Stadium">
+      </div>
+      <div class="field">
+        <label>Search address (jumps the map — click the map to drop the pin)</label>
+        <div class="search-row">
+          <input type="text" id="f-address-search" placeholder="e.g. McKeldin Library, College Park, MD">
+          <button class="btn btn-ghost btn-sm" onclick="searchAddress()">Search</button>
+        </div>
+        <div id="search-status"></div>
+        <div id="map"></div>
+        <div class="coord-readout" id="coord-readout">No location picked yet.</div>
+      </div>
 
-    <div class="form-error" id="form-error"></div>
+      <div class="section-label">Schedule &amp; points</div>
+      <div class="row2">
+        <div class="field">
+          <label>Starts at</label>
+          <input type="datetime-local" id="f-start">
+        </div>
+        <div class="field">
+          <label>Ends at (optional)</label>
+          <input type="datetime-local" id="f-end">
+        </div>
+      </div>
+      <div class="field">
+        <label>Points awarded</label>
+        <input type="number" id="f-points" min="0" step="1" placeholder="25">
+      </div>
 
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeForm()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveEvent()">Save</button>
+      <div class="section-label">Link (optional)</div>
+      <div class="field">
+        <label>URL — shown as a tappable link on the event in the app</label>
+        <input type="text" id="f-link" placeholder="https://example.com/rsvp">
+        <div class="hint">Must start with http:// or https://. Leave blank for no link.</div>
+      </div>
+
+      <div class="form-error" id="form-error"></div>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeForm()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveEvent()">Save</button>
+      </div>
     </div>
   </div>
 </div>
@@ -160,6 +284,9 @@ const UMD_CENTER = [38.9869, -76.9426];
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('password-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') attemptUnlock();
+  });
+  document.getElementById('f-address-search').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); searchAddress(); }
   });
   if (adminPassword) attemptUnlock(adminPassword);
 });
@@ -195,10 +322,18 @@ function showApp() {
   document.getElementById('app').style.display = 'block';
 }
 
+function toggleHowTo() {
+  const steps = document.getElementById('howto-steps');
+  const label = document.getElementById('howto-toggle-label');
+  const collapsed = steps.classList.toggle('collapsed');
+  label.textContent = collapsed ? 'Show' : 'Hide';
+}
+
 function renderEvents() {
   const body = document.getElementById('events-body');
+  document.getElementById('events-count').textContent = events.length;
   if (!events.length) {
-    body.innerHTML = '<tr class="empty-row"><td colspan="5">No events yet — add one to get started.</td></tr>';
+    body.innerHTML = '<tr class="empty-row"><td colspan="6">No events yet — add one to get started.</td></tr>';
     return;
   }
   body.innerHTML = events.map(ev => `
@@ -206,7 +341,8 @@ function renderEvents() {
       <td>${escapeHtml(ev.title)}</td>
       <td>${formatWhen(ev.start_time, ev.end_time)}</td>
       <td>${escapeHtml(ev.location_name)}</td>
-      <td>${ev.points}</td>
+      <td><span class="points-pill">+${ev.points}</span></td>
+      <td>${ev.link ? `<a class="link-icon" href="${escapeHtml(ev.link)}" target="_blank" rel="noopener">🔗</a>` : '<span class="no-link">—</span>'}</td>
       <td class="actions">
         <button class="btn btn-ghost btn-sm" onclick="openForm('${ev.id}')">Edit</button>
         <button class="btn btn-danger btn-sm" onclick="deleteEvent('${ev.id}')">Delete</button>
@@ -240,6 +376,8 @@ function toDateTimeLocal(iso) {
 function openForm(eventId) {
   editingId = eventId || null;
   document.getElementById('form-error').textContent = '';
+  document.getElementById('search-status').textContent = '';
+  document.getElementById('f-address-search').value = '';
   const existing = eventId ? events.find(e => e.id === eventId) : null;
 
   document.getElementById('form-title').textContent = existing ? 'Edit Event' : 'Add Event';
@@ -249,6 +387,7 @@ function openForm(eventId) {
   document.getElementById('f-start').value = existing ? toDateTimeLocal(existing.start_time) : '';
   document.getElementById('f-end').value = existing ? toDateTimeLocal(existing.end_time) : '';
   document.getElementById('f-points').value = existing ? existing.points : '';
+  document.getElementById('f-link').value = existing ? (existing.link || '') : '';
 
   pickedLat = existing ? existing.latitude : null;
   pickedLng = existing ? existing.longitude : null;
@@ -289,8 +428,36 @@ function placeMarker() {
 function updateCoordReadout() {
   const el = document.getElementById('coord-readout');
   el.textContent = (pickedLat != null && pickedLng != null)
-    ? `Picked: ${pickedLat.toFixed(5)}, ${pickedLng.toFixed(5)}`
-    : 'No location picked yet.';
+    ? `Pin dropped at: ${pickedLat.toFixed(5)}, ${pickedLng.toFixed(5)}`
+    : 'No location picked yet — search an address or click the map.';
+}
+
+// Geocodes a free-text address via OpenStreetMap's Nominatim and recenters
+// the map there. It does NOT drop the pin automatically — the organizer
+// still clicks the map to place it, so they can fine-tune the exact spot.
+async function searchAddress() {
+  const input = document.getElementById('f-address-search');
+  const statusEl = document.getElementById('search-status');
+  const q = input.value.trim();
+  if (!q) return;
+  if (!map) { statusEl.textContent = 'Open the map first.'; return; }
+
+  statusEl.textContent = 'Searching…';
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`;
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) throw new Error('search failed');
+    const results = await res.json();
+    if (!results.length) {
+      statusEl.textContent = 'No results — try a more specific address.';
+      return;
+    }
+    const { lat, lon, display_name } = results[0];
+    map.setView([parseFloat(lat), parseFloat(lon)], 17);
+    statusEl.textContent = `📍 ${display_name} — click the map to drop the pin.`;
+  } catch (err) {
+    statusEl.textContent = 'Search failed — check your connection and try again.';
+  }
 }
 
 function closeForm() {
@@ -304,6 +471,7 @@ async function saveEvent() {
   const startRaw = document.getElementById('f-start').value;
   const endRaw = document.getElementById('f-end').value;
   const pointsRaw = document.getElementById('f-points').value;
+  const link = document.getElementById('f-link').value.trim();
   const errorEl = document.getElementById('form-error');
 
   if (!title) return errorEl.textContent = 'Title is required.';
@@ -311,6 +479,7 @@ async function saveEvent() {
   if (pickedLat == null || pickedLng == null) return errorEl.textContent = 'Click the map to set a location.';
   if (!startRaw) return errorEl.textContent = 'Start time is required.';
   if (pointsRaw === '' || Number(pointsRaw) < 0) return errorEl.textContent = 'Points must be zero or a positive number.';
+  if (link && !/^https?:\/\//i.test(link)) return errorEl.textContent = 'Link must start with http:// or https://';
 
   const payload = {
     title,
@@ -320,7 +489,8 @@ async function saveEvent() {
     longitude: pickedLng,
     start_time: new Date(startRaw).toISOString(),
     end_time: endRaw ? new Date(endRaw).toISOString() : null,
-    points: Number(pointsRaw)
+    points: Number(pointsRaw),
+    link
   };
 
   const url = editingId ? `/admin/api/events/${editingId}` : '/admin/api/events';

@@ -47,9 +47,13 @@ create table if not exists events (
     start_time      timestamptz not null,
     end_time        timestamptz,
     points          integer not null default 10,
+    link            text not null default '',
     created_at      timestamptz not null default now(),
     updated_at      timestamptz not null default now()
 );
+
+-- Safe to re-run against a database created before the `link` column existed.
+alter table events add column if not exists link text not null default '';
 
 create index if not exists idx_events_start_time on events (start_time);
 

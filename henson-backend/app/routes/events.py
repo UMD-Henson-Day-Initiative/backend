@@ -21,7 +21,7 @@ COLLECT_RADIUS_METERS = 160.934  # 0.1 mile
 
 EVENT_COLUMNS = (
     "id, title, description, location_name, latitude, longitude, "
-    "start_time, end_time, points"
+    "start_time, end_time, points, link"
 )
 
 

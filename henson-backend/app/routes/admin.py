@@ -19,7 +19,7 @@ admin_bp = Blueprint("admin", __name__)
 
 EVENT_COLUMNS = (
     "id, title, description, location_name, latitude, longitude, "
-    "start_time, end_time, points, created_at, updated_at"
+    "start_time, end_time, points, link, created_at, updated_at"
 )
 
 REQUIRED_FIELDS = ("title", "location_name", "latitude", "longitude", "start_time", "points")
@@ -79,6 +79,12 @@ def _parse_event_payload(data: dict, *, partial: bool) -> dict:
         if points < 0:
             raise ValueError("points must be zero or positive")
         fields["points"] = points
+
+    if "link" in data or not partial:
+        link = (data.get("link") or "").strip()
+        if link and not (link.startswith("http://") or link.startswith("https://")):
+            raise ValueError("link must start with http:// or https://")
+        fields["link"] = link
 
     return fields
 

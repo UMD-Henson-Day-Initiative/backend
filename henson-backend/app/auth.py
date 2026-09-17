@@ -20,6 +20,8 @@ from flask import g, jsonify, request
 from jwt import PyJWKClient
 
 ALLOWED_EMAIL_DOMAINS = ("@umd.edu", "@terpmail.umd.edu")
+# One-off exception for the event organizer account, which isn't a UMD address.
+ALLOWED_EMAIL_EXCEPTIONS = ("hensonday924@gmail.com",)
 
 SUPABASE_URL = (os.getenv("SUPABASE_URL") or "").rstrip("/")
 _JWKS_URL = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json" if SUPABASE_URL else None
@@ -65,7 +67,7 @@ def verify_request() -> dict:
         raise AuthError("invalid session token") from e
 
     email = (claims.get("email") or "").lower()
-    if not email.endswith(ALLOWED_EMAIL_DOMAINS):
+    if email not in ALLOWED_EMAIL_EXCEPTIONS and not email.endswith(ALLOWED_EMAIL_DOMAINS):
         raise AuthError("a UMD email (@umd.edu or @terpmail.umd.edu) is required", 403)
 
     return claims
