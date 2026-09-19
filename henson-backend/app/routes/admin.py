@@ -13,9 +13,15 @@ from postgrest.exceptions import APIError
 
 from app.admin_auth import require_admin_password
 from app.database import supabase
+from app.extensions import limiter
+from app.routes.events import invalidate_events_cache
 from app.utils import api_error_payload
 
 admin_bp = Blueprint("admin", __name__)
+
+# Applied to every route below — the password gate itself is the target here,
+# not just abuse of the CRUD operations, so it covers GET too.
+_admin_rate_limit = limiter.limit("30 per minute")
 
 EVENT_COLUMNS = (
     "id, title, description, location_name, latitude, longitude, is_virtual, "
@@ -101,6 +107,7 @@ def _parse_event_payload(data: dict, *, partial: bool) -> dict:
 
 # GET /admin/api/events — list all events
 @admin_bp.route("/admin/api/events", methods=["GET"])
+@_admin_rate_limit
 @require_admin_password
 def list_events():
     try:
@@ -117,6 +124,7 @@ def list_events():
 
 # POST /admin/api/events — create an event
 @admin_bp.route("/admin/api/events", methods=["POST"])
+@_admin_rate_limit
 @require_admin_password
 def create_event():
     data = request.get_json(silent=True) or {}
@@ -132,11 +140,13 @@ def create_event():
 
     if not result.data:
         return jsonify({"error": "failed to create event"}), 500
+    invalidate_events_cache()
     return jsonify(result.data[0]), 201
 
 
 # PATCH /admin/api/events/<event_id> — update an event
 @admin_bp.route("/admin/api/events/<event_id>", methods=["PATCH"])
+@_admin_rate_limit
 @require_admin_password
 def update_event(event_id):
     data = request.get_json(silent=True) or {}
@@ -158,11 +168,13 @@ def update_event(event_id):
 
     if not result.data:
         return jsonify({"error": "event not found"}), 404
+    invalidate_events_cache()
     return jsonify(result.data[0]), 200
 
 
 # DELETE /admin/api/events/<event_id> — delete an event (cascades to event_collections)
 @admin_bp.route("/admin/api/events/<event_id>", methods=["DELETE"])
+@_admin_rate_limit
 @require_admin_password
 def delete_event(event_id):
     try:
@@ -172,4 +184,5 @@ def delete_event(event_id):
 
     if not result.data:
         return jsonify({"error": "event not found"}), 404
+    invalidate_events_cache()
     return jsonify({"success": True}), 200

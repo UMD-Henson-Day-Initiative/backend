@@ -12,6 +12,7 @@ from postgrest.exceptions import APIError
 
 from app.auth import require_auth
 from app.database import supabase
+from app.extensions import cache, limiter
 from app.utils import api_error_payload, haversine_meters
 
 events_bp = Blueprint("events", __name__)
@@ -25,27 +26,48 @@ EVENT_COLUMNS = (
 )
 
 
+# The events list/detail themselves are identical for every caller at a given
+# moment — only the per-user `collected` flag varies — so only that shared,
+# expensive-to-fetch part is cached. `list_events`/`get_event` always merge in
+# a fresh per-user `collected` lookup on top, so caching never leaks one
+# user's collection status to another.
+@cache.memoize(timeout=30)
+def _fetch_events_from_db(date_param):
+    query = supabase.table("events").select(EVENT_COLUMNS).order("start_time")
+    if date_param:
+        day = date_cls.fromisoformat(date_param)
+        query = query.gte("start_time", f"{day.isoformat()}T00:00:00+00:00")
+        query = query.lte("start_time", f"{day.isoformat()}T23:59:59.999999+00:00")
+    return query.execute().data or []
+
+
+@cache.memoize(timeout=30)
+def _fetch_event_from_db(event_id):
+    result = supabase.table("events").select(EVENT_COLUMNS).eq("id", event_id).execute()
+    return result.data or []
+
+
+def invalidate_events_cache():
+    """Called by the admin routes after any create/update/delete."""
+    cache.delete_memoized(_fetch_events_from_db)
+    cache.delete_memoized(_fetch_event_from_db)
+
+
 # GET /events — full schedule; optional ?date=YYYY-MM-DD scopes to one day (map view)
 @events_bp.route("/events", methods=["GET"])
 @require_auth
 def list_events():
-    query = supabase.table("events").select(EVENT_COLUMNS).order("start_time")
-
     date_param = request.args.get("date")
     if date_param:
         try:
-            day = date_cls.fromisoformat(date_param)
+            date_cls.fromisoformat(date_param)
         except ValueError:
             return jsonify({"error": "date must be YYYY-MM-DD"}), 400
-        query = query.gte("start_time", f"{day.isoformat()}T00:00:00+00:00")
-        query = query.lte("start_time", f"{day.isoformat()}T23:59:59.999999+00:00")
 
     try:
-        result = query.execute()
+        events = [dict(e) for e in _fetch_events_from_db(date_param)]
     except APIError as e:
         return jsonify({"error": api_error_payload(e).get("message", "database error")}), 502
-
-    events = result.data or []
 
     try:
         collected = (
@@ -69,11 +91,10 @@ def list_events():
 @require_auth
 def get_event(event_id):
     try:
-        result = supabase.table("events").select(EVENT_COLUMNS).eq("id", event_id).execute()
+        rows = _fetch_event_from_db(event_id)
     except APIError as e:
         return jsonify({"error": api_error_payload(e).get("message", "database error")}), 502
 
-    rows = result.data or []
     if not rows:
         return jsonify({"error": "event not found"}), 404
     return jsonify(rows[0]), 200
@@ -82,6 +103,7 @@ def get_event(event_id):
 # POST /events/<event_id>/collect — collect this event's coin
 @events_bp.route("/events/<event_id>/collect", methods=["POST"])
 @require_auth
+@limiter.limit("10 per minute")
 def collect_event_coin(event_id):
     data = request.get_json(silent=True) or {}
     lat = data.get("lat")
@@ -173,6 +195,9 @@ def collect_event_coin(event_id):
         except APIError:
             pass
         return jsonify({"error": "failed to update profile; collection rolled back"}), 500
+
+    # Points just changed, so the cached leaderboard is now stale.
+    cache.delete("leaderboard")
 
     new_profile = (updated.data or [{}])[0]
     return jsonify(
