@@ -1,8 +1,3 @@
 # -*- coding: utf-8 -*-
-"""Shared extension instances, initialized against the app in create_app()."""
-from flask_caching import Cache
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+"""Add as extensions are needed."""
 
-cache = Cache()
-limiter = Limiter(key_func=get_remote_address)

@@ -6,7 +6,6 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
 
-from .extensions import cache, limiter
 from .settings import Config
 
 logger = logging.getLogger(__name__)
@@ -22,9 +21,6 @@ def create_app():
         resources={r"/*": {"origins": app.config["CORS_ORIGINS"]}},
         supports_credentials=False,
     )
-
-    cache.init_app(app)
-    limiter.init_app(app)
 
     # Register blueprints. Each blueprint's routes already include their own
     # leading path segment (e.g. "/events"), so they're mounted with no extra prefix.
